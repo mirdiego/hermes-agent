@@ -33,7 +33,18 @@ const PROPIOS_ES = {
   connectorsPage: { title: 'Conexiones' },
   commandCenter: { nav: { artifacts: { title: 'Salidas' } } },
   sidebar: { nav: { artifacts: 'Salidas', cron: 'Tareas' }, cronJobs: 'Tareas' },
-  cron: { title: 'Tareas' }
+  cron: { title: 'Tareas' },
+  intro: {
+    stock: {
+      none: [
+        'Pide un análisis, un gráfico o un informe sobre tus datos ambientales y de salud.',
+        'Cuéntame qué quieres entender: calor, contaminación, urgencias o consumo. Busco los datos y te armo el gráfico.',
+        'Sube una planilla o un informe y te ayudo a revisarlo, resumirlo o compararlo con las series públicas.',
+        'Puedo cruzar temperatura, PM2.5 y atenciones de urgencia, y dejarte el resultado listo para un informe.'
+      ]
+    }
+  },
+  shell: { statusbar: { backend: 'Motor', messagingStopped: 'mensajería apagada', gatewayReady: 'listo' } }
 }
 
 const PROPIOS_EN = {
