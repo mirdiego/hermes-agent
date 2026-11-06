@@ -773,6 +773,9 @@ function kelvoLlavero(servicio: string): string {
 // kelvo: parche 19, la app abre conectada al gateway de gpu-01 sin la pantalla de configuración. Si no vienen las
 // variables HERMES_DESKTOP_REMOTE_*, se ponen aquí con el token de `hermes serve` sacado del Llavero (servicio
 // kelvo-gateway, cuenta diego). Sin token en el Llavero, la app se comporta como siempre.
+// kelvo: parche W1, de dónde salió la conexión remota; va a desktop.log (sin el token) para diagnosticar.
+let kelvoConexion = process.env.HERMES_DESKTOP_REMOTE_URL ? 'variables HERMES_DESKTOP_REMOTE_*' : 'sin token kelvo-gateway en el llavero'
+
 if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
   try {
     const kelvoToken = kelvoLlavero('kelvo-gateway') // kelvo: parche W1
@@ -793,6 +796,7 @@ if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
 
       process.env.HERMES_DESKTOP_REMOTE_URL = kelvoUrl
       process.env.HERMES_DESKTOP_REMOTE_TOKEN = kelvoToken
+      kelvoConexion = `${kelvoUrl} con el token kelvo-gateway del llavero`
     }
   } catch {
     // sin token: arranque normal
@@ -2251,6 +2255,8 @@ function rememberLog(chunk) {
 
   scheduleDesktopLogFlush()
 }
+
+rememberLog(`[kelvo] gateway remoto: ${kelvoConexion}`) // kelvo: parche W1
 
 // Main-process stalls leave renderer-scoped lifecycle logging unable to run.
 // When the loop resumes, retain the delayed timer's timing in desktop.log so a
