@@ -739,7 +739,7 @@ if (USER_DATA_OVERRIDE || process.env.HERMES_DATA_DIR_SUFFIX) {
 // «Credenciales web» (PasswordVault), recurso = servicio y usuario diego, que es donde lo deja llavero-socio.ps1.
 // El guion va por stdin para que el nombre no viaje en la línea de comandos; el valor sólo sale por la tubería.
 function kelvoLlavero(servicio: string): string {
-  if (!/^kelvo-[a-z]+$/.test(servicio)) {
+  if (!/^kelvo-[a-z]+(-[a-z]+)*$/.test(servicio)) {
     return ''
   }
 
@@ -16254,11 +16254,7 @@ const KELVO_CLIENTE_TERMINALES = new Set(['completed', 'failed', 'cancelled', 'i
 
 function kelvoClienteLlave(): string {
   try {
-    return execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-cliente-api', '-a', 'diego', '-w'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000
-    }).trim()
+    return kelvoLlavero('kelvo-cliente-api') // kelvo: parche W1
   } catch {
     return ''
   }
