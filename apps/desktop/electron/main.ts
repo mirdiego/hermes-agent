@@ -735,16 +735,47 @@ if (USER_DATA_OVERRIDE || process.env.HERMES_DATA_DIR_SUFFIX) {
   app.setPath('userData', resolvedUserData)
 }
 
+// kelvo: parche W1, llavero de cada sistema. macOS: Llavero (`security`). Windows: Administrador de credenciales,
+// «Credenciales web» (PasswordVault), recurso = servicio y usuario diego, que es donde lo deja llavero-socio.ps1.
+// El guion va por stdin para que el nombre no viaje en la línea de comandos; el valor sólo sale por la tubería.
+function kelvoLlavero(servicio: string): string {
+  if (!/^kelvo-[a-z]+$/.test(servicio)) {
+    return ''
+  }
+
+  if (process.platform === 'win32') {
+    const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+
+    const guion = [
+      "$ErrorActionPreference = 'Stop'",
+      '[void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]',
+      `$c = (New-Object Windows.Security.Credentials.PasswordVault).Retrieve('${servicio}', 'diego')`,
+      '$c.RetrievePassword()',
+      '[Console]::Out.Write($c.Password)'
+    ].join('\n')
+
+    return execFileSync(powershell, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-'], {
+      encoding: 'utf8',
+      input: guion,
+      stdio: ['pipe', 'pipe', 'ignore'],
+      timeout: 10000,
+      windowsHide: true
+    }).trim()
+  }
+
+  return execFileSync('/usr/bin/security', ['find-generic-password', '-s', servicio, '-a', 'diego', '-w'], {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore'],
+    timeout: 5000
+  }).trim()
+}
+
 // kelvo: parche 19, la app abre conectada al gateway de gpu-01 sin la pantalla de configuración. Si no vienen las
 // variables HERMES_DESKTOP_REMOTE_*, se ponen aquí con el token de `hermes serve` sacado del Llavero (servicio
 // kelvo-gateway, cuenta diego). Sin token en el Llavero, la app se comporta como siempre.
 if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
   try {
-    const kelvoToken = execFileSync(
-      '/usr/bin/security',
-      ['find-generic-password', '-s', 'kelvo-gateway', '-a', 'diego', '-w'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }
-    ).trim()
+    const kelvoToken = kelvoLlavero('kelvo-gateway') // kelvo: parche W1
 
     if (kelvoToken) {
       // Una instalación puede traer su gateway en Resources/kelvo-gateway (la de los socios apunta a otro puerto).
@@ -16138,11 +16169,7 @@ const KELVO_ESTUDIO_BASE = process.env.KELVO_ESTUDIO_BASE || 'https://kelvo-plat
 
 function kelvoEstudioLlave(): string {
   try {
-    return execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-estudio', '-a', 'diego', '-w'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5000
-    }).trim()
+    return kelvoLlavero('kelvo-estudio') // kelvo: parche W1
   } catch {
     return ''
   }

@@ -1,0 +1,124 @@
+name: Kelvo Hermes para Windows
+
+# kelvo: parche W1. Arma el instalador NSIS x64 sin firmar de «Kelvo Hermes» (variante light, sólo remota) para los
+# socios con Windows. Hermes Desktop sólo empaqueta en el mismo sistema operativo y su destino de Windows es MSIX
+# (exige firma), así que aquí se arma la carpeta --dir en un runner Windows y se envuelve con
+# apps/desktop/packaging/kelvo-windows/kelvo-hermes.nsi. El artefacto trae el .exe, su .sha256 y llavero-socio.ps1.
+#
+# Sólo escucha la rama de Windows de Kelvo, para no mover el resto de la CI del fork.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['kelvo/*-windows']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kelvo-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  instalador:
+    name: Instalador NSIS x64
+    runs-on: windows-2025
+    timeout-minutes: 120
+    env:
+      HERMES_DESKTOP_VARIANT: light
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      SALIDA: Kelvo-Hermes-socios-win-x64.exe
+    steps:
+      - name: Excluir las carpetas de trabajo de Defender
+        shell: powershell
+        run: |
+          foreach ($p in @($env:GITHUB_WORKSPACE, $env:RUNNER_TEMP)) {
+            try { Add-MpPreference -ExclusionPath $p } catch { Write-Host "sin exclusión para $p" }
+          }
+
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Herramientas fijadas (Node y npm de pm/lock.json)
+        uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci
+
+      - name: Electron fijado
+        shell: bash
+        run: node scripts/build/electron-runtime.mjs --source .
+
+      - name: Armar la app
+        working-directory: apps/desktop
+        shell: bash
+        run: npm run build
+
+      - name: Empaquetar (electron-builder --dir, sin firma)
+        working-directory: apps/desktop
+        shell: bash
+        run: npm run builder -- --dir --publish never --win --x64
+
+      - name: Revisar el paquete (nombre, marca y rutas largas)
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $dir = Get-ChildItem -LiteralPath release -Directory | Where-Object { $_.Name -like 'win*unpacked' } | Select-Object -First 1
+          if (-not $dir) { Get-ChildItem -Recurse release -Depth 2 | Select-Object FullName; throw 'no hay release/win*-unpacked' }
+          if (-not (Test-Path -LiteralPath (Join-Path $dir.FullName 'Kelvo Hermes.exe'))) {
+            Get-ChildItem -LiteralPath $dir.FullName | Select-Object Name; throw 'falta Kelvo Hermes.exe'
+          }
+          $info = (Get-Item -LiteralPath (Join-Path $dir.FullName 'Kelvo Hermes.exe')).VersionInfo
+          "CompanyName=$($info.CompanyName) ProductName=$($info.ProductName) FileDescription=$($info.FileDescription) LegalCopyright=$($info.LegalCopyright)"
+          if ("$($info.CompanyName) $($info.ProductName) $($info.FileDescription) $($info.LegalCopyright)" -match 'Nous|Hermes Agent') { throw 'el .exe todavía dice Nous' }
+          # La instalación queda en %LOCALAPPDATA%\Programs\Kelvo Hermes\ (unos 70 caracteres con un usuario largo).
+          $base = $dir.FullName.Length + 1
+          $larga = Get-ChildItem -LiteralPath $dir.FullName -Recurse -File | ForEach-Object { $_.FullName.Substring($base) } |
+            Sort-Object Length -Descending | Select-Object -First 1
+          "ruta interna más larga: $($larga.Length) caracteres: $larga"
+          if ($larga.Length -gt 170) { throw 'hay rutas que pasarían de 260 caracteres instaladas' }
+          "ORIGEN=$($dir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Instalador NSIS en español
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $makensis = 'C:\Program Files (x86)\NSIS\makensis.exe'
+          if (-not (Test-Path $makensis)) { choco install nsis -y --no-progress | Out-Null }
+          $version = '0.23.0'  # versión de Hermes Desktop sobre la que va la rama kelvo/0.23.0
+          New-Item -ItemType Directory -Force salida-kelvo | Out-Null
+          & $makensis /V2 "/DORIGEN=$env:ORIGEN" "/DICONO=$PWD\assets\icon.ico" "/DSALIDA=$PWD\salida-kelvo\$env:SALIDA" "/DVERSION=$version" packaging\kelvo-windows\kelvo-hermes.nsi
+          if ($LASTEXITCODE -ne 0) { throw "makensis salió con $LASTEXITCODE" }
+          Copy-Item packaging\kelvo-windows\llavero-socio.ps1 salida-kelvo\
+          $hash = (Get-FileHash -Algorithm SHA256 "salida-kelvo\$env:SALIDA").Hash.ToLower()
+          # Mismo formato que `shasum -a 256`, con fin de línea LF, para comprobarlo igual en Windows y en el Mac.
+          [IO.File]::WriteAllText("$PWD\salida-kelvo\$env:SALIDA.sha256", "$hash  $env:SALIDA`n")
+          Get-ChildItem salida-kelvo | Select-Object Name, Length
+          "sha256 $hash"
+
+      - name: Probar el instalador en silencio
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "salida-kelvo\$env:SALIDA" -ArgumentList '/S' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "el instalador salió con $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo Hermes'
+          foreach ($f in @('Kelvo Hermes.exe', 'Desinstalar Kelvo Hermes.exe', 'resources\app.asar')) {
+            if (-not (Test-Path -LiteralPath (Join-Path $dir $f))) { throw "falta $f después de instalar" }
+          }
+          if (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('Programs')) 'Kelvo Hermes.lnk'))) { throw 'falta el acceso del menú Inicio' }
+          $u = Start-Process -FilePath (Join-Path $dir 'Desinstalar Kelvo Hermes.exe') -ArgumentList '/S', "_?=$dir" -Wait -PassThru
+          if ($u.ExitCode -ne 0) { throw "el desinstalador salió con $($u.ExitCode)" }
+          if (Test-Path -LiteralPath (Join-Path $dir 'Kelvo Hermes.exe')) { throw 'la desinstalación dejó el .exe' }
+          'instalar y desinstalar: bien'
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kelvo-hermes-win-x64
+          path: apps/desktop/salida-kelvo/
+          retention-days: 14
+          if-no-files-found: error

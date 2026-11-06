@@ -100,8 +100,11 @@ module.exports = {
           ? { provider: 'generic', url: publicUrl, channel }
           : { provider: 'github', owner, repo, channel }
       ],
+  // kelvo: parche W1, el .exe de Windows lleva Kelvo en Propiedades › Detalles (CompanyName sale de author)
+  copyright: 'Copyright © 2026 Kelvo',
   extraMetadata: {
     name: appNamePascal,
+    author: { name: 'Kelvo' },
     // Electron bootstrap reads package.productName before main.ts. Keep the
     // shipped stable default, but isolate nonstable userData from first access.
     // A stable-branded channel has no token and keeps stable's userData.
