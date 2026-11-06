@@ -93,7 +93,7 @@ jobs:
           New-Item -ItemType Directory -Force salida-kelvo | Out-Null
           & $makensis /V2 "/DORIGEN=$env:ORIGEN" "/DICONO=$PWD\assets\icon.ico" "/DSALIDA=$PWD\salida-kelvo\$env:SALIDA" "/DVERSION=$version" packaging\kelvo-windows\kelvo-hermes.nsi
           if ($LASTEXITCODE -ne 0) { throw "makensis salió con $LASTEXITCODE" }
-          Copy-Item packaging\kelvo-windows\llavero-socio.ps1 salida-kelvo\
+          Copy-Item packaging\kelvo-windows\llavero-socio.ps1, packaging\kelvo-windows\instalar-kelvo-hermes.ps1 salida-kelvo\
           $hash = (Get-FileHash -Algorithm SHA256 "salida-kelvo\$env:SALIDA").Hash.ToLower()
           # Mismo formato que `shasum -a 256`, con fin de línea LF, para comprobarlo igual en Windows y en el Mac.
           [IO.File]::WriteAllText("$PWD\salida-kelvo\$env:SALIDA.sha256", "$hash  $env:SALIDA`n")
@@ -122,3 +122,55 @@ jobs:
           path: apps/desktop/salida-kelvo/
           retention-days: 14
           if-no-files-found: error
+
+      # Lo que hace Alejandro, de verdad: copia un token (aquí falso) y corre instalar-kelvo-hermes.ps1, que baja el
+      # instalador (aquí de un servidor local en vez de gpu-01), revisa el sha256, instala, guarda el token y abre la app.
+      # Sin tailnet la app no llega a la caja; lo que se comprueba es que encuentra la credencial e intenta ir a gpu-01,
+      # y que sin credencial no lo intenta.
+      - name: Probar como Alejandro (token falso, la app encuentra la credencial)
+        working-directory: apps/desktop
+        shell: pwsh
+        run: |
+          $servidor = Start-Process python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', "$PWD\salida-kelvo" -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+          Set-Clipboard -Value ('falso-' + [guid]::NewGuid().ToString('N'))
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\instalar-kelvo-hermes.ps1 -Base http://127.0.0.1:8765
+          if ($LASTEXITCODE -ne 0) { throw "instalar-kelvo-hermes.ps1 salió con $LASTEXITCODE" }
+          Stop-Process -Id $servidor.Id -Force
+
+          $resto = Get-Clipboard -Raw
+          if ($resto) { throw 'el portapapeles no quedó vacío' }
+          'portapapeles vacío: bien'
+
+          function Lineas-Gpu01 {
+            $logs = foreach ($raiz in @("$env:USERPROFILE\.hermes", $env:LOCALAPPDATA, $env:APPDATA)) {
+              Get-ChildItem -LiteralPath $raiz -Recurse -File -Include *.log -ErrorAction SilentlyContinue
+            }
+            @($logs | Select-String -SimpleMatch 'gpu-01.tail3ecca3.ts.net' -ErrorAction SilentlyContinue)
+          }
+
+          Start-Sleep -Seconds 45
+          $vivos = @(Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue)
+          "procesos de Kelvo Hermes con credencial: $($vivos.Count)"
+          $con = Lineas-Gpu01
+          "líneas de log que nombran gpu-01 con credencial: $($con.Count)"
+          $con | Select-Object -First 8 | ForEach-Object { "  $($_.Path):$($_.LineNumber) $($_.Line.Substring(0, [Math]::Min(220, $_.Line.Length)))" }
+
+          # Control: sin credencial la app no debe intentar ir a gpu-01.
+          Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
+          powershell.exe -NoProfile -Command "[void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]; `$b = New-Object Windows.Security.Credentials.PasswordVault; `$b.Remove(`$b.Retrieve('kelvo-gateway', 'diego'))"
+          Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Kelvo Hermes\Kelvo Hermes.exe"
+          Start-Sleep -Seconds 45
+          $vivosSin = @(Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue)
+          $sin = Lineas-Gpu01
+          "procesos sin credencial: $($vivosSin.Count); líneas que nombran gpu-01 después: $($sin.Count)"
+          Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
+
+          if ($vivos.Count -eq 0) { throw 'la app no arrancó' }
+          if ($con.Count -eq 0) {
+            Get-ChildItem -LiteralPath "$env:USERPROFILE\.hermes", "$env:APPDATA\Kelvo-Hermes" -Recurse -File -ErrorAction SilentlyContinue | Select-Object FullName, Length | Format-Table -AutoSize | Out-String -Width 300
+            throw 'con credencial ningún log nombra gpu-01: no se puede afirmar que la app la encontró'
+          }
+          if ($sin.Count -ne $con.Count) { throw 'sin credencial la app también intentó ir a gpu-01' }
+          'la app encuentra la credencial y sólo con ella apunta a gpu-01: bien'
