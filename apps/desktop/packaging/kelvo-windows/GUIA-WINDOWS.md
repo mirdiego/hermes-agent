@@ -1,16 +1,18 @@
 # Probar Kelvo Hermes en Windows (guía para Alejandro)
 
+**No instales Hermes ni nada de Nous Research. La app es Kelvo Hermes y se descarga sólo desde gpu-01, dentro de Tailscale. Si ya instalaste Hermes de Nous, no lo uses.** Déjalo de lado sin borrar nada, no lo abras y no le reportes nada a Nous; Diego lo revisa después.
+
 Tu Claude sigue esta guía contigo, paso a paso. Vas a probar la app con la que Diego hace la demo de Greenlab del lunes 9-nov: Hermes Desktop con la marca Kelvo, conectada al modelo de gpu-01. En Windows se llama «Kelvo Hermes»; adentro dice Kelvo. Entras al mismo perfil de la demo, greenlab, y tus conversaciones quedan junto a las de Diego. Por eso **no pauses, borres ni ejecutes las rutinas de Tareas**, y no borres conversaciones que no sean tuyas. Critica todo: lo que sobra, lo que confunde y lo que falla.
 
-Necesitas Windows 10 u 11 de 64 bits, Tailscale y tu usuario en la plataforma de Kelvo. No hace falta ser administrador ni compilar nada. Son cuatro pasos y toman unos 7 minutos.
+Necesitas Windows 10 u 11 de 64 bits, Tailscale y tu usuario en la plataforma de Kelvo. No hace falta ser administrador ni compilar nada. Son cuatro pasos y toman unos 10 minutos.
 
 Para tu Claude: los comandos son de PowerShell. El token no se escribe, no se lee y no se pega en la conversación. Sólo pasa por el portapapeles hacia el script.
 
-## 1. Tailscale en la tailnet de Kelvo (1 minuto)
+## 1. Tailscale en la tailnet de Kelvo (2 a 5 minutos)
 
-Abre Tailscale desde el ícono de la bandeja del sistema (abajo a la derecha) y revisa la cuenta activa. Tiene que ser la tailnet de **Kelvo**. Si estás en la de Battex, cambia de cuenta desde ese mismo menú. Si no tienes cuenta en la de Kelvo, pídele a Diego que te invite.
-
-Para comprobarlo, abre https://gpu-01.tail3ecca3.ts.net/desktop/ en el navegador. Tiene que abrir una lista de archivos.
+1. Si no tienes Tailscale, instálalo desde https://tailscale.com/download (Windows).
+2. Entra con tu cuenta **@kelvo.cloud** y acepta la tailnet de **Kelvo**. Si Tailscale ya estaba abierto con la cuenta de Battex, cambia de cuenta desde el ícono de la bandeja del sistema (abajo a la derecha). Si no ves la tailnet de Kelvo, pídele a Diego que te invite.
+3. Para comprobarlo, abre https://gpu-01.tail3ecca3.ts.net/desktop/ en el navegador. Tiene que abrir una lista de archivos. Si no abre, no sigas.
 
 ## 2. Copiar el token (unos segundos)
 
