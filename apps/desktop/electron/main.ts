@@ -735,6 +735,26 @@ if (USER_DATA_OVERRIDE || process.env.HERMES_DATA_DIR_SUFFIX) {
   app.setPath('userData', resolvedUserData)
 }
 
+// kelvo: parche 19, la app abre conectada al gateway de gpu-01 sin la pantalla de configuración. Si no vienen las
+// variables HERMES_DESKTOP_REMOTE_*, se ponen aquí con el token de `hermes serve` sacado del Llavero (servicio
+// kelvo-gateway, cuenta diego). Sin token en el Llavero, la app se comporta como siempre.
+if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
+  try {
+    const kelvoToken = execFileSync(
+      '/usr/bin/security',
+      ['find-generic-password', '-s', 'kelvo-gateway', '-a', 'diego', '-w'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 5000 }
+    ).trim()
+
+    if (kelvoToken) {
+      process.env.HERMES_DESKTOP_REMOTE_URL = 'https://gpu-01.tail3ecca3.ts.net:8443'
+      process.env.HERMES_DESKTOP_REMOTE_TOKEN = kelvoToken
+    }
+  } catch {
+    // sin token: arranque normal
+  }
+}
+
 // kelvo: parche 20, carpeta propia para no mezclarse con el Kelvo Desktop anterior, que usa «Kelvo».
 if (!USER_DATA_OVERRIDE && !process.env.HERMES_DATA_DIR_SUFFIX) {
   app.setPath('userData', path.join(app.getPath('appData'), 'Kelvo-Hermes'))
@@ -9939,8 +9959,8 @@ async function resolveRemoteBackend(
     const currentRoute = resolveDesktopRemoteRoute({
       config: readDesktopConnectionConfig(),
       env: {
-        token: process.env.HERMES_DESKTOP_REMOTE_TOKEN || kelvoGatewayToken(),
-        url: process.env.HERMES_DESKTOP_REMOTE_URL || KELVO_GATEWAY_URL
+        token: process.env.HERMES_DESKTOP_REMOTE_TOKEN,
+        url: process.env.HERMES_DESKTOP_REMOTE_URL
       },
       profile: profileKey,
       registry: readDesktopConnectionsRegistry()
@@ -10934,8 +10954,8 @@ async function captureManagedSshScopes(source) {
     resolveDesktopRemoteRoute({
       config,
       env: {
-        token: process.env.HERMES_DESKTOP_REMOTE_TOKEN || kelvoGatewayToken(),
-        url: process.env.HERMES_DESKTOP_REMOTE_URL || KELVO_GATEWAY_URL
+        token: process.env.HERMES_DESKTOP_REMOTE_TOKEN,
+        url: process.env.HERMES_DESKTOP_REMOTE_URL
       },
       profile,
       registry
@@ -16080,23 +16100,6 @@ function formatApiRequestFailure(
   return `[hermes:api ${method} ${path}] ${detail}`.slice(0, 6000)
 }
 
-// kelvo: parche 19, la app abre conectada al gateway de gpu-01 sin la pantalla de configuración. El token de
-// `hermes serve` sale del Llavero (servicio kelvo-gateway, cuenta diego); las variables de siempre siguen ganando.
-const KELVO_GATEWAY_URL = 'https://gpu-01.tail3ecca3.ts.net:8443'
-
-function kelvoGatewayToken(): string | undefined {
-  try {
-    const valor = execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-gateway', '-a', 'diego', '-w'], {
-      encoding: 'utf8',
-      timeout: 5000
-    }).trim()
-
-    return valor || undefined
-  } catch {
-    return undefined
-  }
-}
-
 // kelvo: parche 18, la Bandeja de solicitudes de Kelvo habla con la API del estudio de la plataforma por aquí.
 // La llave personal (kv_) sale del Llavero de macOS y nunca llega al renderer; sólo se llama a esta base.
 const KELVO_ESTUDIO_BASE = process.env.KELVO_ESTUDIO_BASE || 'https://kelvo-plataforma.vercel.app/api/servicios/estudio'
@@ -16105,6 +16108,7 @@ function kelvoEstudioLlave(): string {
   try {
     return execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-estudio', '-a', 'diego', '-w'], {
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 5000
     }).trim()
   } catch {
