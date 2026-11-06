@@ -1869,6 +1869,20 @@ Menu.setApplicationMenu(null)
 // never firing on Windows.)
 if (IS_WINDOWS) {
   app.setAppUserModelId(IDENTITY_APP_NAME ? PRODUCT_IDENTITY.appId : 'com.nousresearch.hermes')
+
+  // kelvo: parche W1, el instalador NSIS de Kelvo (packaging/kelvo-windows) crea el acceso del menú Inicio sin
+  // AppUserModelID; se lo pone la app para que las notificaciones de Windows aparezcan.
+  const kelvoAcceso = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Kelvo Hermes.lnk')
+
+  if (IDENTITY_APP_NAME && fs.existsSync(kelvoAcceso)) {
+    try {
+      if (shell.readShortcutLink(kelvoAcceso).appUserModelId !== PRODUCT_IDENTITY.appId) {
+        shell.writeShortcutLink(kelvoAcceso, 'update', { appUserModelId: PRODUCT_IDENTITY.appId })
+      }
+    } catch (error) {
+      console.error('[kelvo] no pude marcar el acceso del menú Inicio:', error)
+    }
+  }
 }
 
 // Seed the native About panel with the best-known Hermes version. This is
@@ -16205,9 +16219,20 @@ function formatApiRequestFailure(
 // La llave personal (kv_) sale del Llavero de macOS y nunca llega al renderer; sólo se llama a esta base.
 const KELVO_ESTUDIO_BASE = process.env.KELVO_ESTUDIO_BASE || 'https://kelvo-plataforma.vercel.app/api/servicios/estudio'
 
+// kelvo: parche W1, en Windows leer la llave lanza PowerShell; la Bandeja pregunta cada 15 s, así que una llave
+// encontrada se recuerda 5 minutos (una llave nueva guardada con llavero-socio.ps1 entra a más tardar entonces).
+let kelvoEstudioRecordada: { llave: string; hasta: number } | null = null
+
 function kelvoEstudioLlave(): string {
+  if (kelvoEstudioRecordada && kelvoEstudioRecordada.hasta > Date.now()) {
+    return kelvoEstudioRecordada.llave
+  }
+
   try {
-    return kelvoLlavero('kelvo-estudio') // kelvo: parche W1
+    const llave = kelvoLlavero('kelvo-estudio')
+    kelvoEstudioRecordada = llave && process.platform === 'win32' ? { llave, hasta: Date.now() + 5 * 60_000 } : null
+
+    return llave
   } catch {
     return ''
   }

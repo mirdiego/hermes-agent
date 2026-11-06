@@ -2,7 +2,7 @@
 
 Tu Claude sigue esta guía contigo, paso a paso. Vas a probar la app con la que Diego hace la demo de Greenlab del lunes 9-nov: Hermes Desktop con la marca Kelvo, conectada al modelo de gpu-01. En Windows se llama «Kelvo Hermes»; adentro dice Kelvo. Entras al mismo perfil de la demo, greenlab, y tus conversaciones quedan junto a las de Diego. Por eso **no pauses, borres ni ejecutes las rutinas de Tareas**, y no borres conversaciones que no sean tuyas. Critica todo: lo que sobra, lo que confunde y lo que falla.
 
-Necesitas Windows 10 u 11 de 64 bits y Tailscale. No hace falta ser administrador ni compilar nada. Son tres pasos y toman unos 5 minutos.
+Necesitas Windows 10 u 11 de 64 bits, Tailscale y tu usuario en la plataforma de Kelvo. No hace falta ser administrador ni compilar nada. Son cuatro pasos y toman unos 7 minutos.
 
 Para tu Claude: los comandos son de PowerShell. El token no se escribe, no se lee y no se pega en la conversación. Sólo pasa por el portapapeles hacia el script.
 
@@ -39,17 +39,30 @@ Si el script dice que no pudo bajar el instalador, revisa Tailscale (paso 1). Si
 
 Para reinstalar una versión nueva, pega la misma línea; si no copiaste un token, usa el que ya quedó guardado.
 
-## 4. Qué probar
+## 4. La llave de la Bandeja (2 minutos)
+
+La Bandeja de solicitudes habla con la plataforma con tu propia llave `kv_`.
+
+1. En la plataforma de Kelvo, entra a **Mi configuración**, sección 1, «Para Claude Code o si tu cliente no hace OAuth», y presiona **Generar llave**. Ojo: no es la sección 8, «Llaves de la caja». La llave se muestra una sola vez, y generar otra invalida la anterior.
+2. Cópiala (Ctrl+C) y pega en PowerShell:
+
+   ```powershell
+   $g="$env:TEMP\llavero-socio.ps1"; iwr -UseBasicParsing https://gpu-01.tail3ecca3.ts.net/desktop/llavero-socio.ps1 -OutFile $g; powershell -ExecutionPolicy Bypass -File $g estudio
+   ```
+
+   La guarda en el Administrador de credenciales (Credenciales web, `kelvo-estudio`) sin mostrarla y vacía el portapapeles. La Bandeja la toma sola en unos segundos.
+
+## 5. Qué probar
 
 - Una conversación nueva, con una pregunta que necesite herramientas. Por ejemplo: «¿En qué licitaciones del MMA de 2026 perdimos ofertando más caro que el ganador? Grafícalo».
 - La tarjeta Agentes que aparece sobre el compositor, con Orientar y Detener.
 - Capacidades › Conexiones.
-- La Bandeja. En Windows pide una llave de la plataforma que no tienes, así que lo normal es que diga que falta la llave; anótalo sólo si muestra otra cosa.
+- La Bandeja, con las solicitudes y «Dar acceso a un cliente». No apruebes ni devuelvas solicitudes de la demo.
 - Tareas: mira las rutinas y su detalle, sin pausarlas, borrarlas ni ejecutarlas.
 - El panel derecho con las salidas: html, png y pdf.
 - Lo propio de Windows: ventanas, menús, acentos, el ícono, el acceso del menú Inicio, y cerrar y volver a abrir la app.
 
-## 5. Reportar
+## 6. Reportar
 
 Cada problema y cada crítica va como un pendiente en la plataforma, uno por cosa. Tu Claude lo crea con el MCP de Kelvo:
 
@@ -58,6 +71,17 @@ Cada problema y cada crítica va como un pendiente en la plataforma, uno por cos
 - en el detalle: qué hiciste, qué esperabas y qué pasó, más una captura si sirve.
 
 Nada de datos reales de Greenlab en los reportes, y nunca el token.
+
+## Igual que en el Mac, y lo que cambia en Windows
+
+La app es la misma que usa Diego en el Mac, armada de la misma rama: mismas vistas, Bandeja, Salidas con vista previa, Tareas, Agentes, Conexiones y el perfil greenlab. Lo que cambia por ser Windows:
+
+- No hay barra de menú. Los botones de minimizar, maximizar y cerrar quedan arriba a la derecha, dentro de la ventana, y los atajos usan Ctrl en vez de Cmd.
+- Las llaves quedan en el Administrador de credenciales (Credenciales web) en vez del Llavero.
+- Los datos quedan en `%APPDATA%\Kelvo-Hermes`.
+- El instalador no está firmado. Por el comando no aparece SmartScreen; si lo abres desde el navegador, sí.
+
+Si ves otra diferencia con lo que muestra Diego, repórtala como pendiente con «Kelvo Hermes (Windows)» en el título.
 
 ## Si el comando no sirve: a mano
 

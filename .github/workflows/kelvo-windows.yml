@@ -156,6 +156,20 @@ jobs:
           "líneas de log que nombran gpu-01 con credencial: $($con.Count)"
           $con | Select-Object -First 8 | ForEach-Object { "  $($_.Path):$($_.LineNumber) $($_.Line.Substring(0, [Math]::Min(220, $_.Line.Length)))" }
 
+          $carpetaInicio = [Environment]::GetFolderPath('Programs')
+          $aumid = (New-Object -ComObject Shell.Application).NameSpace($carpetaInicio).ParseName('Kelvo Hermes.lnk').ExtendedProperty('System.AppUserModel.ID')
+          "AppUserModelID del acceso del menú Inicio: $aumid"
+          if ($aumid -ne 'cl.kelvo.kelvo-hermes') { throw 'el acceso del menú Inicio no quedó con el AppUserModelID de la app (sin notificaciones)' }
+
+          # La llave kv_ de la Bandeja, con llavero-socio.ps1 estudio (llave falsa con la forma de una real).
+          Set-Clipboard -Value ('kv_' + ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')).Substring(0, 43))
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\llavero-socio.ps1 estudio
+          if ($LASTEXITCODE -ne 0) { throw "llavero-socio.ps1 estudio salió con $LASTEXITCODE" }
+          if (Get-Clipboard -Raw) { throw 'el portapapeles no quedó vacío después de estudio' }
+          powershell.exe -NoProfile -Command "[void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]; `$b = New-Object Windows.Security.Credentials.PasswordVault; `$c = `$b.Retrieve('kelvo-estudio', 'diego'); `$c.RetrievePassword(); if (-not `$c.Password.StartsWith('kv_')) { exit 1 }; `$b.Remove(`$c)"
+          if ($LASTEXITCODE -ne 0) { throw 'la llave kelvo-estudio no quedó guardada' }
+          'llave de la Bandeja (kelvo-estudio): bien'
+
           # Control: sin credencial la app no debe intentar ir a gpu-01.
           Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 3
