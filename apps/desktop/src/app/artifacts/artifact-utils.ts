@@ -571,7 +571,10 @@ export async function loadArtifactsForSessions(
         }
 
         for (const artifact of collectArtifactsForSession(session, page.messages)) {
-          if (!sessionArtifacts.has(artifact.id)) {
+          // kelvo: parche 32, se queda con la mención más nueva (la del mensaje final, si el agente lo nombra)
+          const previa = sessionArtifacts.get(artifact.id)
+
+          if (!previa || artifact.timestamp > previa.timestamp) {
             sessionArtifacts.set(artifact.id, artifact)
           }
         }

@@ -49,6 +49,8 @@ import {
   type ArtifactRecord,
   loadArtifactsForSessions
 } from './artifact-utils'
+// kelvo: parche 32
+import { agruparEntregables, type ArtifactConTrabajo } from './kelvo-entregables'
 
 function formatArtifactTime(timestamp: number): string {
   return fmtDayTime.format(new Date(timestamp))
@@ -117,6 +119,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   const navigate = useNavigate()
   const [artifacts, setArtifacts] = useState<ArtifactRecord[] | null>(null)
   const [query, setQuery] = useState('')
+  const [sesion, setSesion] = useState('')
 
   const [kindFilter, setKindFilter] = useRouteEnumParam('tab', ARTIFACT_FILTERS, 'all')
 
@@ -193,16 +196,36 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   useEffect(() => {
     setImagePage(1)
     setFilePage(1)
-  }, [artifacts, kindFilter, query])
+  }, [artifacts, kindFilter, query, sesion])
+
+  // kelvo: parche 32, sólo los entregables finales; los de trabajo van plegados bajo el principal
+  const entregables = useMemo(() => (artifacts ? agruparEntregables(artifacts) : null), [artifacts])
+
+  const enSesion = useMemo(
+    () => (entregables ? entregables.filter(artifact => !sesion || artifact.sessionId === sesion) : null),
+    [entregables, sesion]
+  )
+
+  const sesiones = useMemo(() => {
+    const vistas = new Map<string, string>()
+
+    for (const artifact of entregables ?? []) {
+      if (!vistas.has(artifact.sessionId)) {
+        vistas.set(artifact.sessionId, artifact.sessionTitle || artifact.sessionId)
+      }
+    }
+
+    return [...vistas.entries()]
+  }, [entregables])
 
   const visibleArtifacts = useMemo(() => {
-    if (!artifacts) {
+    if (!enSesion) {
       return []
     }
 
     const q = normalize(query)
 
-    return artifacts.filter(artifact => {
+    return enSesion.filter(artifact => {
       if (kindFilter !== 'all' && artifact.kind !== kindFilter) {
         return false
       }
@@ -217,7 +240,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         artifact.sessionTitle.toLowerCase().includes(q)
       )
     })
-  }, [artifacts, kindFilter, query])
+  }, [enSesion, kindFilter, query])
 
   const visibleImageArtifacts = useMemo(
     () => visibleArtifacts.filter(artifact => artifact.kind === 'image'),
@@ -266,7 +289,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   }, [artifacts, t])
 
   const counts = useMemo(() => {
-    const all = artifacts || []
+    const all = enSesion || []
 
     return {
       all: all.length,
@@ -274,7 +297,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       file: all.filter(artifact => artifact.kind === 'file').length,
       link: all.filter(artifact => artifact.kind === 'link').length
     }
-  }, [artifacts])
+  }, [enSesion])
 
   const openArtifact = useCallback(
     async (artifact: ArtifactRecord) => {
@@ -365,6 +388,24 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       ) : (
         <div className="h-full overflow-y-auto [scrollbar-gutter:stable]">
           <div className="flex flex-col gap-3 px-3 pb-2">
+            {sesiones.length > 1 && (
+              <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground" htmlFor="kelvo-salidas-sesion">
+                Conversación
+                <select
+                  className="rounded-md border border-(--ui-stroke-tertiary) bg-background px-2 py-1 text-xs text-foreground"
+                  id="kelvo-salidas-sesion"
+                  onChange={event => setSesion(event.target.value)}
+                  value={sesion}
+                >
+                  <option value="">Todas</option>
+                  {sesiones.map(([id, titulo]) => (
+                    <option key={id} value={id}>
+                      {titulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {visibleImageArtifacts.length > 0 && (
               <section className="flex flex-col">
                 <div className="sticky top-0 z-10 -mx-3 flex h-7 items-center gap-3 overflow-x-auto bg-background px-3">
@@ -549,6 +590,7 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
             {a.chat}
           </Button>
         </div>
+        <ArchivosDeTrabajo artifact={artifact} />
       </div>
     </article>
   )
@@ -599,11 +641,12 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
   const label = isLink ? fetchedTitle || urlSlugTitleLabel(artifact.href) : artifact.label
 
   return (
-    <ArtifactCellAction
-      href={isLink ? artifact.href : undefined}
-      onClick={isLink ? undefined : () => void ctx.onOpen(artifact)}
-      title={label}
-    >
+    <div className="flex flex-col">
+      <ArtifactCellAction
+        href={isLink ? artifact.href : undefined}
+        onClick={isLink ? undefined : () => void ctx.onOpen(artifact)}
+        title={label}
+      >
       <span className="mt-0.5 grid size-6 shrink-0 place-items-center self-start rounded-md bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
         <Icon className="size-3.5" />
       </span>
@@ -611,9 +654,35 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
         {label}
         {isLink && <ExternalLinkIcon />}
       </span>
-    </ArtifactCellAction>
+      </ArtifactCellAction>
+      <div className="px-2.5 pb-1">
+        <ArchivosDeTrabajo artifact={artifact} />
+      </div>
+    </div>
   )
 })
+
+// kelvo: parche 32, los archivos de trabajo del entregable, plegados
+function ArchivosDeTrabajo({ artifact }: { artifact: ArtifactRecord }) {
+  const trabajo = (artifact as ArtifactConTrabajo).trabajo ?? []
+
+  if (trabajo.length === 0) {
+    return null
+  }
+
+  return (
+    <details className="text-[0.625rem] text-(--ui-text-tertiary)">
+      <summary className="cursor-pointer select-none">Archivos de trabajo ({trabajo.length})</summary>
+      <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto">
+        {trabajo.map(item => (
+          <li className="truncate" key={item.id} title={item.value}>
+            {item.label}
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
 
 const LocationCell = memo(function LocationCell({ artifact }: { artifact: ArtifactRecord; ctx: CellCtx }) {
   const { t } = useI18n()
