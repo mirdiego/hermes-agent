@@ -1876,8 +1876,10 @@ if (IS_WINDOWS) {
 
   if (IDENTITY_APP_NAME && fs.existsSync(kelvoAcceso)) {
     try {
-      if (shell.readShortcutLink(kelvoAcceso).appUserModelId !== PRODUCT_IDENTITY.appId) {
-        shell.writeShortcutLink(kelvoAcceso, 'update', { appUserModelId: PRODUCT_IDENTITY.appId })
+      const actual = shell.readShortcutLink(kelvoAcceso)
+
+      if (actual.appUserModelId !== PRODUCT_IDENTITY.appId) {
+        shell.writeShortcutLink(kelvoAcceso, 'update', { ...actual, appUserModelId: PRODUCT_IDENTITY.appId })
       }
     } catch (error) {
       console.error('[kelvo] no pude marcar el acceso del menú Inicio:', error)
