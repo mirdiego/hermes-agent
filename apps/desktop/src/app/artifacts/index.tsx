@@ -138,12 +138,16 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     try {
       const sessions = (await listAllProfileSessions(30, 1)).sessions
 
-      const { artifacts: nextArtifacts, failures } = await loadArtifactsForSessions(sessions, (session, page) =>
-        getSessionMessages(session.id, session.profile, {
-          ...page,
-          includeCompacted: true,
-          order: 'oldest'
-        })
+      // kelvo: parche 31, lo más nuevo primero, dos páginas por sesión y cuatro sesiones a la vez
+      const { artifacts: nextArtifacts, failures } = await loadArtifactsForSessions(
+        sessions,
+        (session, page) =>
+          getSessionMessages(session.id, session.profile, {
+            ...page,
+            includeCompacted: true,
+            order: 'latest'
+          }),
+        { maxPages: 2, concurrency: 4 }
       )
 
       if (failures.length > 0) {

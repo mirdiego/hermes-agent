@@ -539,7 +539,7 @@ export async function loadArtifactsForSessions(
     session: SessionInfo,
     page: { limit: number; offset: number }
   ) => Promise<Pick<SessionMessagesResponse, 'messages' | 'pagination'>>,
-  options: { maxPageJsonChars?: number } = {}
+  options: { maxPageJsonChars?: number; maxPages?: number; concurrency?: number } = {}
 ): Promise<ArtifactLoadResult> {
   const artifacts: ArtifactRecord[] = []
   const failures: ArtifactLoadFailure[] = []
@@ -548,12 +548,19 @@ export async function loadArtifactsForSessions(
   // Keep only one transcript page resident at a time. Recent sessions can each
   // be tens of megabytes, so retaining complete transcripts exhausts the
   // Desktop renderer even when transport requests are paginated.
-  for (const session of sessions) {
+  // kelvo: parche 31, sólo las últimas páginas de cada sesión y varias sesiones a la vez: las corridas de la demo
+  // tienen millones de tokens y recorrerlas enteras dejaba Salidas cargando sin fin.
+  const maxPages = options.maxPages ?? Number.POSITIVE_INFINITY
+  const concurrency = Math.max(1, options.concurrency ?? 1)
+
+  const indexSession = async (session: SessionInfo) => {
     try {
       const sessionArtifacts = new Map<string, ArtifactRecord>()
       let offset = 0
+      let pages = 0
 
-      while (true) {
+      while (pages < maxPages) {
+        pages += 1
         const page = await loadPage(session, { limit: ARTIFACT_MESSAGE_PAGE_SIZE, offset })
         const pageJsonChars = (JSON.stringify(page.messages) ?? '').length
 
@@ -581,6 +588,10 @@ export async function loadArtifactsForSessions(
     } catch (error) {
       failures.push({ error, session })
     }
+  }
+
+  for (let start = 0; start < sessions.length; start += concurrency) {
+    await Promise.all(sessions.slice(start, start + concurrency).map(indexSession))
   }
 
   return { artifacts, failures }
