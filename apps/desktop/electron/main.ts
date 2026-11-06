@@ -755,6 +755,22 @@ if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
   }
 }
 
+// kelvo: parche 21, una instalación puede traer su perfil fijo (la de los socios abre socios-prueba): si la app trae
+// Resources/kelvo-perfil y no vino --profile, se agrega antes de que se lea el perfil de arranque.
+try {
+  const kelvoPerfilArchivo = path.join(process.resourcesPath || '', 'kelvo-perfil')
+
+  if (!process.argv.some(arg => arg === '--profile' || arg.startsWith('--profile=')) && fs.existsSync(kelvoPerfilArchivo)) {
+    const kelvoPerfil = fs.readFileSync(kelvoPerfilArchivo, 'utf8').trim().toLowerCase()
+
+    if (/^[a-z0-9][a-z0-9_-]{0,63}$/.test(kelvoPerfil)) {
+      process.argv.push(`--profile=${kelvoPerfil}`)
+    }
+  }
+} catch {
+  // sin archivo de perfil: arranque normal
+}
+
 // kelvo: parche 20, carpeta propia para no mezclarse con el Kelvo Desktop anterior, que usa «Kelvo».
 if (!USER_DATA_OVERRIDE && !process.env.HERMES_DATA_DIR_SUFFIX) {
   app.setPath('userData', path.join(app.getPath('appData'), 'Kelvo-Hermes'))
