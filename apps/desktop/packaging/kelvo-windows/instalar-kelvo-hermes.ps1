@@ -34,16 +34,18 @@ function Falla($texto) { Write-Host $texto -ForegroundColor Red; exit 1 }
 $boveda = New-Object Windows.Security.Credentials.PasswordVault
 
 Paso 1 'Token del portapapeles'
-$token = Get-Clipboard -Raw
-if ($null -ne $token) { $token = $token -replace '\s', '' }
-if ([string]::IsNullOrEmpty($token) -or $token.Length -lt 16 -or $token.Length -gt 512) {
-  $token = $null
+# El token del gateway son 64 hexadecimales. Se toma exactamente ese tramo aunque venga con texto, comillas, saltos de
+# línea o caracteres invisibles alrededor (al copiar de WhatsApp); nunca se guarda otra cosa.
+$token = $null
+$candidatos = @([regex]::Matches([string](Get-Clipboard -Raw), '(?<![0-9a-fA-F])[0-9a-fA-F]{64}(?![0-9a-fA-F])') | ForEach-Object { $_.Value.ToLower() } | Select-Object -Unique)
+if ($candidatos.Count -eq 1) {
+  $token = $candidatos[0]
+  Write-Host '      Token encontrado (no se muestra).'
+} else {
   $previo = $null
   try { $previo = $boveda.Retrieve($recurso, $usuario) } catch { }
-  if (-not $previo) { Falla 'El portapapeles no tiene el token. Cópialo del mensaje de Diego (Ctrl+C) y vuelve a pegar el comando.' }
-  Write-Host '      No copiaste un token nuevo: uso el que ya estaba guardado.'
-} else {
-  Write-Host '      Token encontrado (no se muestra).'
+  if (-not $previo) { Falla 'El token copiado no es válido. Copia sólo el token del mensaje de Diego (Ctrl+C) y vuelve a pegar el comando.' }
+  Write-Host '      No copiaste un token válido: uso el que ya estaba guardado.'
 }
 
 Paso 2 'Bajar el instalador desde gpu-01'
@@ -71,10 +73,10 @@ Paso 5 'Guardar el token en el Administrador de credenciales'
 if ($token) {
   try { $boveda.Remove($boveda.Retrieve($recurso, $usuario)) } catch { }
   $boveda.Add((New-Object Windows.Security.Credentials.PasswordCredential($recurso, $usuario, $token)))
-  Remove-Variable token
   Add-Type -AssemblyName System.Windows.Forms
   [System.Windows.Forms.Clipboard]::Clear()
-  Write-Host '      Guardado (Credenciales web, kelvo-gateway). Portapapeles vaciado.'
+  $huella = -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($token))[0..3] | ForEach-Object { $_.ToString('x2') })
+  Write-Host "      Guardado (Credenciales web, kelvo-gateway, huella $huella). Portapapeles vaciado."
 } else {
   Write-Host '      Se mantiene el token guardado antes.'
 }

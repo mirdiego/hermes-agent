@@ -136,7 +136,19 @@ jobs:
 
           $servidor = Start-Process python -ArgumentList '-m', 'http.server', '8765', '--bind', '127.0.0.1', '--directory', "$PWD\salida-kelvo" -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 3
-          Set-Clipboard -Value ('falso-' + [guid]::NewGuid().ToString('N'))
+          # Token falso con la forma del real (64 hexadecimales), copiado «sucio» como sale de WhatsApp: texto alrededor,
+          # saltos de línea y caracteres invisibles. Los scripts tienen que guardar exactamente el token.
+          $falso = ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')).ToUpper()
+          $huellaFalso = -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($falso.ToLower()))[0..3] | ForEach-Object { $_.ToString('x2') })
+          $sucio = "Hola Alejandro, el token es:`r`n" + [char]0x200B + '"' + $falso + '"' + [char]0x200E + "`r`nSaludos"
+
+          # Un portapapeles sin token no se guarda.
+          Set-Clipboard -Value 'Hola, te lo mando en un rato'
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\llavero-socio.ps1
+          if ($LASTEXITCODE -eq 0) { throw 'llavero-socio.ps1 aceptó un portapapeles sin token' }
+          'portapapeles sin token: rechazado, bien'
+
+          Set-Clipboard -Value $sucio
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\instalar-kelvo-hermes.ps1 -Base http://127.0.0.1:8765
           if ($LASTEXITCODE -ne 0) { throw "instalar-kelvo-hermes.ps1 salió con $LASTEXITCODE" }
           Stop-Process -Id $servidor.Id -Force
@@ -157,12 +169,38 @@ jobs:
           if ($vivos.Count -eq 0) { throw 'la app no arrancó' }
           $con = Ultima-Kelvo
           "con credencial -> $con"
-          if ($con -notmatch 'gateway remoto: https://gpu-01\.tail3ecca3\.ts\.net:8443 con el token kelvo-gateway del llavero') { throw 'la app no tomó el token del Administrador de credenciales' }
-          if ($con -match 'falso-') { throw 'el token aparece en el log' }
+          if ($con -notmatch "gateway remoto: https://gpu-01\.tail3ecca3\.ts\.net:8443 con el token kelvo-gateway del llavero \(64 caracteres, huella $huellaFalso\)") { throw "la app no tomó exactamente el token copiado (huella esperada $huellaFalso)" }
+          if ($con -match $falso) { throw 'el token aparece en el log' }
+          'la app usa exactamente el token copiado (64 caracteres, misma huella): bien'
 
           $acceso = @(Get-Content -LiteralPath "$env:LOCALAPPDATA\hermes\logs\desktop.log" -ErrorAction SilentlyContinue | Select-String -SimpleMatch '[kelvo] acceso del menú Inicio:')
           "acceso del menú Inicio -> $($acceso[-1].Line)"
           if ($acceso.Count -eq 0 -or $acceso[-1].Line -notmatch 'AppUserModelID cl\.kelvo\.kelvo-hermes') { throw 'el acceso del menú Inicio no quedó con el AppUserModelID de la app (sin notificaciones)' }
+
+          # El comando de rescate que se le mandó a Alejandro el 6-nov (token copiado de nuevo, sin reinstalar), tal cual.
+          $falso2 = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+          $huella2 = -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($falso2))[0..3] | ForEach-Object { $_.ToString('x2') })
+          Set-Clipboard -Value ("Token: " + [char]0x200B + $falso2 + " `r`n")
+          powershell.exe -NoProfile -Command {
+          $s=@'
+          $t=@([regex]::Matches((Get-Clipboard -Raw),'(?<![0-9a-fA-F])[0-9a-fA-F]{64}(?![0-9a-fA-F])')|%{$_.Value.ToLower()}|Select -Unique)
+          if($t.Count -ne 1){Write-Host 'El token copiado no es valido. Copia solo el token del WhatsApp de Diego y vuelve a intentar.' -F Red;exit 1}
+          [void][Windows.Security.Credentials.PasswordVault,Windows.Security.Credentials,ContentType=WindowsRuntime]
+          $b=New-Object Windows.Security.Credentials.PasswordVault
+          try{$b.Remove($b.Retrieve('kelvo-gateway','diego'))}catch{}
+          $b.Add((New-Object Windows.Security.Credentials.PasswordCredential('kelvo-gateway','diego',$t[0])))
+          Add-Type -A System.Windows.Forms;[Windows.Forms.Clipboard]::Clear()
+          $h=-join([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($t[0]))[0..3]|%{$_.ToString('x2')})
+          Write-Host "Token guardado, huella $h. Abriendo Kelvo Hermes..." -F Green
+          Get-Process 'Kelvo Hermes' -EA 0|Stop-Process -Force;Start-Sleep 2
+          Start-Process "$env:LOCALAPPDATA\Programs\Kelvo Hermes\Kelvo Hermes.exe"
+          '@; $f="$env:TEMP\kelvo-token.ps1"; Set-Content -Path $f -Value $s -Encoding ASCII; powershell -NoProfile -ExecutionPolicy Bypass -File $f
+          }
+          Start-Sleep -Seconds 30
+          $rescate = Ultima-Kelvo
+          "rescate -> $rescate"
+          if ($rescate -notmatch "64 caracteres, huella $huella2\)") { throw "el comando de rescate no dejó el token copiado (huella esperada $huella2)" }
+          'comando de rescate: bien'
 
           # La llave kv_ de la Bandeja, con llavero-socio.ps1 estudio (llave falsa con la forma de una real).
           Set-Clipboard -Value ('kv_' + ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')).Substring(0, 43))

@@ -796,7 +796,9 @@ if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
 
       process.env.HERMES_DESKTOP_REMOTE_URL = kelvoUrl
       process.env.HERMES_DESKTOP_REMOTE_TOKEN = kelvoToken
-      kelvoConexion = `${kelvoUrl} con el token kelvo-gateway del llavero`
+      // Largo y huella (primeros 8 hexadecimales del sha256): comparan el token con el del Mac sin revelarlo.
+      const kelvoHuella = crypto.createHash('sha256').update(kelvoToken).digest('hex').slice(0, 8)
+      kelvoConexion = `${kelvoUrl} con el token kelvo-gateway del llavero (${kelvoToken.length} caracteres, huella ${kelvoHuella})`
     }
   } catch {
     // sin token: arranque normal
