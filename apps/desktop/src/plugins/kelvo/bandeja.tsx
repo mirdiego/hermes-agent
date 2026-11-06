@@ -2,7 +2,7 @@
 // llegan de agentes de clientes por Kelvo Servicios. Lee y escribe la cola con la API del estudio de la plataforma
 // (PR #124) a través del proceso principal de Electron (parche 18, window.kelvoEstudio): la llave no pasa por aquí.
 
-import { Button, cn } from '@hermes/plugin-sdk'
+import { Button, cn, MessageTextContent } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Pedido = { method?: 'GET' | 'POST'; path: string; body?: unknown }
@@ -53,7 +53,26 @@ export function mensajes(datos: unknown): Registro[] {
 }
 
 export function titulo(s: Registro): string {
-  return texto(s.titulo ?? s.asunto ?? s.resumen ?? s.servicio ?? s.codigo) || 'Solicitud'
+  return texto(s.servicio_nombre ?? s.titulo ?? s.servicio ?? s.codigo) || 'Solicitud'
+}
+
+/** Quién escribió cada mensaje del hilo, en palabras de la demo. */
+export function autorDe(m: Registro): string {
+  const autor = texto(m.autor)
+
+  if (autor === 'agente_usuario') {
+    return 'Agente del cliente'
+  }
+
+  if (autor === 'agente_kelvo') {
+    return texto(m.accion) ? `Nuestro agente · ${texto(m.accion)}` : 'Nuestro agente'
+  }
+
+  if (autor === 'persona') {
+    return texto(m.persona) || 'Equipo'
+  }
+
+  return autor || 'Mensaje'
 }
 
 export function borradorDe(ficha: Registro | null): string {
@@ -216,7 +235,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                 <span className="min-w-0 flex-1">
                   <b className="block truncate text-[13px] font-medium">{titulo(s)}</b>
                   <span className="block truncate text-[11.5px] text-muted-foreground">
-                    {codigo} · {texto(s.creado).slice(0, 10)}
+                    {texto(s.cuenta_nombre) || codigo} · {texto(s.creado).slice(0, 10)}
                   </span>
                 </span>
                 <Pildora estado={texto(s.estado)} />
@@ -238,10 +257,10 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                   {hilo.map((m, i) => (
                     <div className="rounded-lg border border-border bg-card px-3 py-2" key={i}>
                       <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
-                        {texto(m.autor ?? m.rol ?? 'mensaje')}
+                        {autorDe(m)}
                         {texto(m.visibilidad) === 'interna' ? ' · interno' : ''}
                       </div>
-                      <div className="whitespace-pre-wrap">{texto(m.texto ?? m.contenido ?? m.mensaje)}</div>
+                      <MessageTextContent text={texto(m.contenido ?? m.texto)} />
                     </div>
                   ))}
                   {borrador && (
@@ -249,7 +268,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                       <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
                         Borrador · espera firma
                       </div>
-                      <div className="whitespace-pre-wrap">{borrador}</div>
+                      <MessageTextContent text={borrador} />
                     </div>
                   )}
                 </div>
@@ -266,7 +285,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                     value={nota}
                   />
                   <Button
-                    disabled={!puedeFirmar || enviando || !nota.trim()}
+                    disabled={!puedeFirmar || enviando || nota.trim().length < 3}
                     onClick={() => void decidir('devolver')}
                     size="sm"
                     type="button"
