@@ -1,5 +1,5 @@
-// Dar acceso a un cliente desde la Bandeja: crear la cuenta con su saldo, mostrar la llave ks_ UNA sola vez y revocarla.
-// Contrato de la API del estudio (demo-escena-claude, 6-nov): GET /clientes, POST /clientes {nombre, creditos},
+// Dar acceso a un cliente desde la Bandeja: crear la cuenta, mostrar la llave ks_ UNA sola vez y revocarla.
+// Contrato de la API del estudio (demo-escena-claude, 6-nov): GET /clientes, POST /clientes {nombre},
 // POST /clientes/<id>/llave, POST /llaves/<id>/revocar {motivo}. La llave nunca se guarda ni se registra en la app:
 // vive sólo en el estado del panel mientras está abierto.
 
@@ -12,11 +12,6 @@ type Registro = Record<string, unknown>
 
 const texto = (valor: unknown): string => (typeof valor === 'string' ? valor : valor == null ? '' : String(valor))
 const numero = (valor: unknown): number => (typeof valor === 'number' ? valor : Number(valor) || 0)
-
-/** 100.000 créditos = $1.000 (contrato de la demo). */
-export function creditos(n: number): string {
-  return `${n.toLocaleString('es-CL')} créditos · $${Math.round(n / 100).toLocaleString('es-CL')}`
-}
 
 export function clientesDe(datos: unknown): Registro[] {
   const crudo = (datos as Registro | null)?.clientes ?? datos
@@ -44,7 +39,8 @@ export function useClientes() {
     }
 
     setError('')
-    setClientes(clientesDe(r.datos))
+    // Sólo los clientes de esta instalación (sala greenlab).
+    setClientes(clientesDe(r.datos).filter(c => !texto(c.sala) || texto(c.sala) === 'greenlab'))
   }, [])
 
   useEffect(() => {
@@ -85,14 +81,13 @@ function LlaveUnaVez({ llave, onCerrar }: { llave: string; onCerrar: () => void 
   )
 }
 
-/** Panel «Dar acceso a un cliente»: nombre y saldo inicial; al generar, la llave una sola vez. */
+/** Panel «Dar acceso a un cliente»: sólo el nombre; al generar, la llave una sola vez. */
 export function DarAcceso({ onCerrar, onCreado }: { onCerrar: () => void; onCreado: () => void }) {
   const [nombre, setNombre] = useState('')
-  const [saldo, setSaldo] = useState('3000000')
   const [llave, setLlave] = useState('')
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
-  const valido = nombre.trim().length >= 2 && /^\d+$/.test(saldo.trim())
+  const valido = nombre.trim().length >= 2
 
   const generar = async () => {
     setEnviando(true)
@@ -101,7 +96,7 @@ export function DarAcceso({ onCerrar, onCreado }: { onCerrar: () => void; onCrea
     const r = await pedir({
       method: 'POST',
       path: '/clientes',
-      body: { nombre: nombre.trim(), creditos: Number(saldo.trim()) }
+      body: { nombre: nombre.trim() }
     })
 
     setEnviando(false)
@@ -140,17 +135,6 @@ export function DarAcceso({ onCerrar, onCreado }: { onCerrar: () => void; onCrea
                 value={nombre}
               />
             </label>
-            <label className="flex flex-col gap-1" htmlFor="kelvo-cliente-saldo">
-              <span className="text-muted-foreground">Saldo inicial en créditos</span>
-              <input
-                className="rounded-md border border-border bg-background px-2 py-1.5 font-mono"
-                id="kelvo-cliente-saldo"
-                inputMode="numeric"
-                onChange={e => setSaldo(e.target.value)}
-                value={saldo}
-              />
-              <span className="text-[11.5px] text-muted-foreground">{creditos(numero(saldo))}</span>
-            </label>
             {error && <div className="text-destructive">{error}</div>}
             <div className="flex justify-end gap-2">
               <Button onClick={onCerrar} size="sm" type="button" variant="outline">
@@ -179,14 +163,14 @@ export function FilaCliente({ cliente, elegido, onElegir }: { cliente: Registro;
     >
       <span className="min-w-0 flex-1">
         <b className="block truncate text-[13px] font-medium">{texto(cliente.nombre)}</b>
-        <span className="block truncate text-[11.5px] text-muted-foreground">{creditos(numero(cliente.saldo))}</span>
+        <span className="block truncate text-[11.5px] text-muted-foreground">{numero(cliente.solicitudes)} solicitudes</span>
       </span>
       <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground">{activas ? 'con llave' : 'sin llave'}</span>
     </button>
   )
 }
 
-/** Detalle de un cliente: saldo, llaves por prefijo y Revocar. */
+/** Detalle de un cliente: llaves por prefijo y Revocar. */
 export function FichaCliente({ cliente, onCambio }: { cliente: Registro; onCambio: () => void }) {
   const [motivo, setMotivo] = useState('')
   const [llaveNueva, setLlaveNueva] = useState('')
@@ -231,9 +215,7 @@ export function FichaCliente({ cliente, onCambio }: { cliente: Registro; onCambi
     <div className="flex flex-col gap-3 px-5 py-4 text-[12.5px]">
       <div>
         <b className="text-[15px]">{texto(cliente.nombre)}</b>
-        <div className="text-muted-foreground">
-          {creditos(numero(cliente.saldo))} · {numero(cliente.solicitudes)} solicitudes
-        </div>
+        <div className="text-muted-foreground">{numero(cliente.solicitudes)} solicitudes</div>
       </div>
       <div className="flex flex-col">
         {llaves.length === 0 && <div className="text-muted-foreground">Sin llaves.</div>}

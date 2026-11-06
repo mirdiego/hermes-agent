@@ -768,16 +768,16 @@ if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
   }
 }
 
-// kelvo: parche 21, perfil fijo por instalación: Resources/kelvo-perfil (la de los socios trae socios-prueba) o, sin
-// archivo, greenlab. Si no vino --profile, se agrega antes de que se lea el perfil de arranque.
+// kelvo: parche 21, perfil fijo por instalación: Resources/kelvo-perfil o, sin archivo, default. Si no vino --profile, se agrega antes de que se lea el perfil de arranque.
 try {
   const kelvoPerfilArchivo = path.join(process.resourcesPath || '', 'kelvo-perfil')
 
   if (!process.argv.some(arg => arg === '--profile' || arg.startsWith('--profile='))) {
-    // Sin archivo, el perfil de la demo: el gateway sin perfil contesta por el perfil raíz de la máquina.
+    // Sin archivo, «default»: la conexión remota por variables sólo se aplica a ese perfil (envOverride), y en la
+    // caja cada serve responde «default» como su perfil (8443 = greenlab). Así se corrige también una elección vieja.
     const kelvoPerfil = fs.existsSync(kelvoPerfilArchivo)
       ? fs.readFileSync(kelvoPerfilArchivo, 'utf8').trim().toLowerCase()
-      : 'greenlab'
+      : 'default'
 
     if (/^[a-z0-9][a-z0-9_-]{0,63}$/.test(kelvoPerfil)) {
       process.argv.push(`--profile=${kelvoPerfil}`)

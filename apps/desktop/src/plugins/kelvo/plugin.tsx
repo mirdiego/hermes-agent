@@ -30,7 +30,10 @@ const MOTOR = '0.23.0'
 
 /** Textos propios de Kelvo, encima de la marca general. */
 const PROPIOS_ES = {
-  connectorsPage: { title: 'Conexiones' }
+  connectorsPage: { title: 'Conexiones' },
+  commandCenter: { nav: { artifacts: { title: 'Salidas' } } },
+  sidebar: { nav: { artifacts: 'Salidas', cron: 'Tareas' }, cronJobs: 'Tareas' },
+  cron: { title: 'Tareas' }
 }
 
 const PROPIOS_EN = {

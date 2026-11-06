@@ -41,6 +41,37 @@ export function mensajes(datos: unknown): Registro[] {
   return Array.isArray(crudo) ? (crudo as Registro[]) : []
 }
 
+/** Servicios que muestra la Bandeja de esta instalación: sólo los de Greenlab. */
+export const SERVICIOS_VISIBLES = ['informe-calor-urgencias']
+
+export function esVisible(s: Registro): boolean {
+  return SERVICIOS_VISIBLES.includes(texto(s.servicio))
+}
+
+/** Un mensaje del agente del cliente puede llegar como JSON: se muestra como líneas «clave: valor». */
+export function legible(contenido: string): string {
+  const limpio = contenido.trim()
+
+  if (!limpio.startsWith('{')) {
+    return contenido
+  }
+
+  try {
+    const datos = JSON.parse(limpio) as Record<string, unknown>
+
+    return Object.entries(datos)
+      .map(([clave, valor]) => {
+        const nombre = clave.replace(/_/g, ' ')
+        const valorTexto = typeof valor === 'object' && valor !== null ? JSON.stringify(valor) : String(valor)
+
+        return `**${nombre.charAt(0).toUpperCase()}${nombre.slice(1)}:** ${valorTexto}`
+      })
+      .join('\n\n')
+  } catch {
+    return contenido
+  }
+}
+
 export function titulo(s: Registro): string {
   return texto(s.servicio_nombre ?? s.titulo ?? s.servicio ?? s.codigo) || 'Solicitud'
 }
@@ -121,7 +152,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
     }
 
     setError('')
-    const todas = lista(r.datos)
+    const todas = lista(r.datos).filter(esVisible)
     setSolicitudes(todas)
     onCuenta?.(todas.filter(s => texto(s.estado) === 'en_revision').length)
   }, [onCuenta])
@@ -270,7 +301,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
             clienteActual ? (
               <FichaCliente cliente={clienteActual} onCambio={() => void cargarClientes()} />
             ) : (
-              <div className="m-auto text-sm text-muted-foreground">Elige un cliente para ver su saldo y sus llaves.</div>
+              <div className="m-auto text-sm text-muted-foreground">Elige un cliente para ver sus llaves.</div>
             )
           ) : !actual ? (
             <div className="m-auto text-sm text-muted-foreground">Elige una solicitud para ver su hilo.</div>
@@ -288,7 +319,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                         {autorDe(m)}
                         {texto(m.visibilidad) === 'interna' ? ' · interno' : ''}
                       </div>
-                      <MessageTextContent text={texto(m.contenido ?? m.texto)} />
+                      <MessageTextContent text={legible(texto(m.contenido ?? m.texto))} />
                     </div>
                   ))}
                   {borrador && (
