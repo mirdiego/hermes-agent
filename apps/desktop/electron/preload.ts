@@ -29,6 +29,11 @@ const uiPreferencesSnapshot = ipcRenderer.sendSync('hermes:ui-preferences:snapsh
 
 import { unwrapExpectedNotFound } from './api-expected-404'
 
+// kelvo: parche 18, puente de la Bandeja de solicitudes (ver electron/main.ts, kelvo:estudio)
+contextBridge.exposeInMainWorld('kelvoEstudio', {
+  pedir: (pedido: { method?: string; path?: string; body?: unknown }) => ipcRenderer.invoke('kelvo:estudio', pedido)
+})
+
 contextBridge.exposeInMainWorld('hermesDesktop', {
   glassSupported: translucencySupport?.glass === true,
   translucencySupported: translucencySupport?.translucency === true,

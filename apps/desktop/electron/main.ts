@@ -16075,6 +16075,57 @@ function formatApiRequestFailure(
   return `[hermes:api ${method} ${path}] ${detail}`.slice(0, 6000)
 }
 
+// kelvo: parche 18, la Bandeja de solicitudes de Kelvo habla con la API del estudio de la plataforma por aquí.
+// La llave personal (kv_) sale del Llavero de macOS y nunca llega al renderer; sólo se llama a esta base.
+const KELVO_ESTUDIO_BASE = process.env.KELVO_ESTUDIO_BASE || 'https://kelvo-plataforma.vercel.app/api/servicios/estudio'
+
+function kelvoEstudioLlave(): string {
+  try {
+    return execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-estudio', '-a', 'diego', '-w'], {
+      encoding: 'utf8',
+      timeout: 5000
+    }).trim()
+  } catch {
+    return ''
+  }
+}
+
+ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?: string; body?: unknown }) => {
+  const method = pedido?.method === 'POST' ? 'POST' : 'GET'
+  const ruta = typeof pedido?.path === 'string' ? pedido.path : ''
+
+  if (!/^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta)) {
+    return { ok: false, status: 400, error: 'ruta no permitida' }
+  }
+
+  const llave = kelvoEstudioLlave()
+
+  if (!llave) {
+    return { ok: false, status: 401, error: 'falta la llave kelvo-estudio en el Llavero' }
+  }
+
+  try {
+    const respuesta = await fetch(`${KELVO_ESTUDIO_BASE}${ruta}`, {
+      method,
+      headers: { authorization: `Bearer ${llave}`, 'content-type': 'application/json' },
+      body: method === 'POST' ? JSON.stringify(pedido?.body ?? {}) : undefined,
+      signal: AbortSignal.timeout(20000)
+    })
+    const texto = await respuesta.text()
+    let datos: unknown = null
+
+    try {
+      datos = texto ? JSON.parse(texto) : null
+    } catch {
+      datos = { texto }
+    }
+
+    return { ok: respuesta.ok, status: respuesta.status, datos }
+  } catch (error) {
+    return { ok: false, status: 0, error: error instanceof Error ? error.message : String(error) }
+  }
+})
+
 ipcMain.handle('hermes:api', async (_event, request) => {
   // Hold the deletion gate for BOTH profile deletes and renames: a concurrent
   // renderer reconnect entering ensureBackend() mid-mutation would otherwise

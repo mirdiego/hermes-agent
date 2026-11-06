@@ -12,11 +12,16 @@ import {
   BUNDLED_TRANSLATIONS,
   type HermesPlugin,
   host,
+  type RouteContribution,
+  ROUTES_AREA,
+  SIDEBAR_NAV_AREA,
   SIDEBAR_NAV_PREFS_AREA,
+  type SidebarNavContribution,
   STATUSBAR_AREAS,
   THEMES_AREA
 } from '@hermes/plugin-sdk'
 
+import { BandejaPagina, lista, pedir } from './bandeja'
 import { parcialConMarca } from './marca'
 import kelvoGrafito from './tema-kelvo-grafito'
 
@@ -50,7 +55,7 @@ function mezclar(base: Record<string, unknown> | null, encima: Record<string, un
 const plugin: HermesPlugin = {
   id: 'kelvo',
   name: 'Kelvo',
-  description: 'Marca, tema y barra de estado de Kelvo.',
+  description: 'Marca, tema, barra de estado y Bandeja de solicitudes de Kelvo.',
   register(ctx) {
     host.i18n.registerAppLocale('es', {
       translations: mezclar(parcialConMarca(BUNDLED_TRANSLATIONS.es), PROPIOS_ES)
@@ -72,8 +77,44 @@ const plugin: HermesPlugin = {
           label: `gpu-01 · motor ${MOTOR} · 0 salieron del computador`,
           variant: 'text'
         }
+      },
+      {
+        id: 'bandeja',
+        area: ROUTES_AREA,
+        title: 'Bandeja',
+        data: { path: '/bandeja' } satisfies RouteContribution,
+        render: () => <BandejaPagina onCuenta={ponerFila} />
       }
     ])
+
+    // La fila de la Bandeja, donde Hermes tenía Mensajería. Sin campo de globo en la barra, el contador va en la
+    // etiqueta y la fila se vuelve a registrar cuando cambia.
+    let cuenta = -1
+
+    function ponerFila(n: number) {
+      if (n === cuenta) {
+        return
+      }
+
+      cuenta = n
+      ctx.register({
+        id: 'bandeja-fila',
+        area: SIDEBAR_NAV_AREA,
+        order: 5,
+        data: {
+          codicon: 'inbox',
+          label: n > 0 ? `Bandeja · ${n}` : 'Bandeja',
+          path: '/bandeja'
+        } satisfies SidebarNavContribution
+      })
+    }
+
+    ponerFila(0)
+    void pedir({ path: '/solicitudes' }).then(r => {
+      if (r.ok) {
+        ponerFila(lista(r.datos).filter(s => s.estado === 'en_revision').length)
+      }
+    })
   }
 }
 
