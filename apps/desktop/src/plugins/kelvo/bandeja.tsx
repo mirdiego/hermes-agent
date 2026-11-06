@@ -73,6 +73,20 @@ export function legible(contenido: string): string {
   }
 }
 
+/** Estados en que el agente todavía trabaja: el hilo se actualiza solo. */
+export const EN_CURSO = new Set(['abierta', 'en_validacion', 'en_proceso'])
+
+/** Un paso interno del agente (leyó, encargó, usó una herramienta, entregó…), que va como una línea. */
+export function esPaso(m: Registro): boolean {
+  return texto(m.autor) === 'agente_kelvo' && texto(m.visibilidad) === 'interna' && Boolean(texto(m.accion))
+}
+
+export function resumenPaso(m: Registro): string {
+  const partes = [texto(m.herramienta), texto(m.contenido ?? m.texto).split('\n')[0]].filter(Boolean)
+
+  return partes.join(' · ').slice(0, 180)
+}
+
 export function titulo(s: Registro): string {
   return texto(s.servicio_nombre ?? s.titulo ?? s.servicio ?? s.codigo) || 'Solicitud'
 }
@@ -182,6 +196,21 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
     setHilo(c.ok ? mensajes(c.datos) : [])
   }, [])
 
+  const refrescar = useCallback(async (codigo: string) => {
+    const [f, c] = await Promise.all([
+      pedir({ path: `/solicitudes/${codigo}` }),
+      pedir({ path: `/solicitudes/${codigo}/conversacion` })
+    ])
+
+    if (f.ok) {
+      setFicha(((f.datos as Registro)?.solicitud as Registro) ?? (f.datos as Registro))
+    }
+
+    if (c.ok) {
+      setHilo(mensajes(c.datos))
+    }
+  }, [])
+
   const filtro = GRUPOS.find(g => g.id === grupo) ?? GRUPOS[0]
   const enClientes = grupo === 'clientes'
   const enServicios = grupo === 'servicios'
@@ -191,6 +220,20 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const actual = solicitudes.find(s => texto(s.codigo) === elegida) ?? null
   const borrador = borradorDe(ficha)
   const puedeFirmar = texto(actual?.estado) === 'en_revision'
+  const enCurso = EN_CURSO.has(texto(actual?.estado))
+
+  useEffect(() => {
+    if (!elegida || !enCurso) {
+      return
+    }
+
+    const reloj = setInterval(() => {
+      void refrescar(elegida)
+      void cargar()
+    }, 5000)
+
+    return () => clearInterval(reloj)
+  }, [elegida, enCurso, refrescar, cargar])
 
   const archivar = async () => {
     if (!elegida) {
@@ -368,15 +411,29 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                   <Pildora estado={texto(actual.estado)} />
                 </div>
                 <div className="flex flex-col gap-2 text-[12.5px]">
-                  {hilo.map((m, i) => (
-                    <div className="rounded-lg border border-border bg-card px-3 py-2" key={i}>
-                      <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
-                        {autorDe(m)}
-                        {texto(m.visibilidad) === 'interna' ? ' · interno' : ''}
+                  {hilo.map((m, i) =>
+                    esPaso(m) ? (
+                      <div className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground" key={i}>
+                        <span className="size-1.5 shrink-0 rounded-full bg-current" />
+                        <span className="shrink-0 font-medium text-foreground/80">{texto(m.accion)}</span>
+                        <span className="min-w-0 truncate">{resumenPaso(m)}</span>
                       </div>
-                      <MessageTextContent text={legible(texto(m.contenido ?? m.texto))} />
+                    ) : (
+                      <div className="rounded-lg border border-border bg-card px-3 py-2" key={i}>
+                        <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">
+                          {autorDe(m)}
+                          {texto(m.visibilidad) === 'interna' ? ' · interno' : ''}
+                        </div>
+                        <MessageTextContent text={legible(texto(m.contenido ?? m.texto))} />
+                      </div>
+                    )
+                  )}
+                  {enCurso && (
+                    <div className="flex items-center gap-2 px-1 text-[12px] text-muted-foreground">
+                      <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[#ff4d00]" />
+                      Nuestro agente está trabajando…
                     </div>
-                  ))}
+                  )}
                   {borrador && (
                     <div className="rounded-lg border border-border bg-card px-3 py-3">
                       <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">

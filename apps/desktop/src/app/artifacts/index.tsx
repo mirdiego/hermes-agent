@@ -49,6 +49,8 @@ import {
   type ArtifactRecord,
   loadArtifactsForSessions
 } from './artifact-utils'
+// kelvo: parche 32
+import { agruparEntregables, type ArtifactConTrabajo } from './kelvo-entregables'
 
 function formatArtifactTime(timestamp: number): string {
   return fmtDayTime.format(new Date(timestamp))
@@ -111,12 +113,22 @@ interface ArtifactsViewProps extends React.ComponentProps<'section'> {
   setStatusbarItemGroup?: SetStatusbarItemGroup
 }
 
+// kelvo: parche 33, caché en memoria de las salidas por conversación, válida mientras la conversación no cambie
+const KELVO_CACHE_SALIDAS = new Map<string, { sello: string; artifacts: ArtifactRecord[] }>()
+
+function kelvoSello(session: object): string {
+  const s = session as Record<string, unknown>
+
+  return [s.message_count, s.updated_at, s.last_active, s.ended_at].map(value => String(value ?? '')).join('|')
+}
+
 export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, ...props }: ArtifactsViewProps) {
   const { t } = useI18n()
   const a = t.artifacts
   const navigate = useNavigate()
   const [artifacts, setArtifacts] = useState<ArtifactRecord[] | null>(null)
   const [query, setQuery] = useState('')
+  const [sesion, setSesion] = useState('')
 
   const [kindFilter, setKindFilter] = useRouteEnumParam('tab', ARTIFACT_FILTERS, 'all')
 
@@ -138,39 +150,65 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
     try {
       const sessions = (await listAllProfileSessions(30, 1)).sessions
 
-      const { artifacts: nextArtifacts, failures } = await loadArtifactsForSessions(sessions, (session, page) =>
-        getSessionMessages(session.id, session.profile, {
-          ...page,
-          includeCompacted: true,
-          order: 'oldest'
-        })
-      )
+      // kelvo: parche 33, lo ya leído sale de la caché al tiro; las conversaciones nuevas o cambiadas se leen de a 3,
+      // la más reciente primero, y la lista se va mostrando a medida que llegan.
+      const acumulado: ArtifactRecord[] = []
+      const failures: Array<{ error: unknown }> = []
+      const pendientes: typeof sessions = []
+
+      for (const session of sessions) {
+        const guardado = KELVO_CACHE_SALIDAS.get(session.id)
+
+        if (guardado && guardado.sello === kelvoSello(session)) {
+          acumulado.push(...guardado.artifacts)
+        } else {
+          pendientes.push(session)
+        }
+      }
+
+      const mostrar = () => setArtifacts([...acumulado].sort((left, right) => right.timestamp - left.timestamp))
+
+      if (acumulado.length > 0 || pendientes.length === 0) {
+        mostrar()
+      }
+
+      for (let desde = 0; desde < pendientes.length; desde += 3) {
+        const tanda = pendientes.slice(desde, desde + 3)
+
+        const resultado = await loadArtifactsForSessions(
+          tanda,
+          (session, page) =>
+            getSessionMessages(session.id, session.profile, {
+              ...page,
+              includeCompacted: true,
+              order: 'latest'
+            }),
+          { maxPages: 2, concurrency: 3 }
+        )
+
+        for (const session of tanda) {
+          if (!resultado.failures.some(failure => failure.session.id === session.id)) {
+            KELVO_CACHE_SALIDAS.set(session.id, {
+              sello: kelvoSello(session),
+              artifacts: resultado.artifacts.filter(artifact => artifact.sessionId === session.id)
+            })
+          }
+        }
+
+        acumulado.push(...resultado.artifacts)
+        failures.push(...resultado.failures)
+        mostrar()
+      }
 
       if (failures.length > 0) {
-        const safeLimitFailures = failures.filter(({ error }) =>
-          String(error instanceof Error ? error.message : error).includes('safe-load limit')
-        ).length
-
-        const otherFailures = failures.length - safeLimitFailures
-
-        const detail = [
-          safeLimitFailures ? `${safeLimitFailures} exceeded the safe transcript load limit.` : '',
-          otherFailures ? `${otherFailures} could not be read.` : ''
-        ]
-          .filter(Boolean)
-          .join(' ')
-
         notify({
           id: 'artifacts-partial-load',
           kind: 'warning',
           title: a.failedLoad,
-          message: `Skipped ${failures.length} of ${sessions.length} recent sessions while indexing artifacts.`,
-          detail,
+          message: `No se pudieron leer ${failures.length} de ${sessions.length} conversaciones recientes.`,
           durationMs: 10_000
         })
       }
-
-      setArtifacts(nextArtifacts.sort((left, right) => right.timestamp - left.timestamp))
     } catch (err) {
       notifyError(err, a.failedLoad)
       setArtifacts([])
@@ -189,16 +227,36 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   useEffect(() => {
     setImagePage(1)
     setFilePage(1)
-  }, [artifacts, kindFilter, query])
+  }, [artifacts, kindFilter, query, sesion])
+
+  // kelvo: parche 32, sólo los entregables finales; los de trabajo van plegados bajo el principal
+  const entregables = useMemo(() => (artifacts ? agruparEntregables(artifacts) : null), [artifacts])
+
+  const enSesion = useMemo(
+    () => (entregables ? entregables.filter(artifact => !sesion || artifact.sessionId === sesion) : null),
+    [entregables, sesion]
+  )
+
+  const sesiones = useMemo(() => {
+    const vistas = new Map<string, string>()
+
+    for (const artifact of entregables ?? []) {
+      if (!vistas.has(artifact.sessionId)) {
+        vistas.set(artifact.sessionId, artifact.sessionTitle || artifact.sessionId)
+      }
+    }
+
+    return [...vistas.entries()]
+  }, [entregables])
 
   const visibleArtifacts = useMemo(() => {
-    if (!artifacts) {
+    if (!enSesion) {
       return []
     }
 
     const q = normalize(query)
 
-    return artifacts.filter(artifact => {
+    return enSesion.filter(artifact => {
       if (kindFilter !== 'all' && artifact.kind !== kindFilter) {
         return false
       }
@@ -213,7 +271,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         artifact.sessionTitle.toLowerCase().includes(q)
       )
     })
-  }, [artifacts, kindFilter, query])
+  }, [enSesion, kindFilter, query])
 
   const visibleImageArtifacts = useMemo(
     () => visibleArtifacts.filter(artifact => artifact.kind === 'image'),
@@ -262,7 +320,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
   }, [artifacts, t])
 
   const counts = useMemo(() => {
-    const all = artifacts || []
+    const all = enSesion || []
 
     return {
       all: all.length,
@@ -270,7 +328,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       file: all.filter(artifact => artifact.kind === 'file').length,
       link: all.filter(artifact => artifact.kind === 'link').length
     }
-  }, [artifacts])
+  }, [enSesion])
 
   const openArtifact = useCallback(
     async (artifact: ArtifactRecord) => {
@@ -361,6 +419,24 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       ) : (
         <div className="h-full overflow-y-auto [scrollbar-gutter:stable]">
           <div className="flex flex-col gap-3 px-3 pb-2">
+            {sesiones.length > 1 && (
+              <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground" htmlFor="kelvo-salidas-sesion">
+                Conversación
+                <select
+                  className="rounded-md border border-(--ui-stroke-tertiary) bg-background px-2 py-1 text-xs text-foreground"
+                  id="kelvo-salidas-sesion"
+                  onChange={event => setSesion(event.target.value)}
+                  value={sesion}
+                >
+                  <option value="">Todas</option>
+                  {sesiones.map(([id, titulo]) => (
+                    <option key={id} value={id}>
+                      {titulo}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             {visibleImageArtifacts.length > 0 && (
               <section className="flex flex-col">
                 <div className="sticky top-0 z-10 -mx-3 flex h-7 items-center gap-3 overflow-x-auto bg-background px-3">
@@ -380,6 +456,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                       failedImage={failedImageIds.has(artifact.id)}
                       key={artifact.id}
                       onImageError={markImageFailed}
+                      onOpen={item => void openArtifact(item)}
                       onOpenChat={sessionId => openSessionFromPicker(sessionId, navigate)}
                     />
                   ))}
@@ -469,9 +546,10 @@ interface ArtifactImageCardProps {
   failedImage: boolean
   onImageError: (id: string) => void
   onOpenChat: (sessionId: string) => void
+  onOpen: (artifact: ArtifactRecord) => void
 }
 
-function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: ArtifactImageCardProps) {
+function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat, onOpen }: ArtifactImageCardProps) {
   const { t } = useI18n()
   const a = t.artifacts
   const kindLabel = artifact.kind === 'image' ? a.kindImage : artifact.kind === 'file' ? a.kindFile : a.kindLink
@@ -529,9 +607,14 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
             <FileImage className="size-3" />
             {kindLabel}
           </div>
-          <div className="truncate text-[length:var(--conversation-caption-font-size)] font-medium">
+          <button
+            className="block w-full truncate text-left text-[length:var(--conversation-caption-font-size)] font-medium hover:underline"
+            onClick={() => onOpen(artifact)}
+            title={artifact.value}
+            type="button"
+          >
             {artifact.label}
-          </div>
+          </button>
           <div className="mt-0.5 truncate text-[0.625rem] text-(--ui-text-tertiary)">{artifact.value}</div>
         </div>
 
@@ -545,6 +628,7 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat }: 
             {a.chat}
           </Button>
         </div>
+        <ArchivosDeTrabajo artifact={artifact} onOpen={onOpen} />
       </div>
     </article>
   )
@@ -595,11 +679,12 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
   const label = isLink ? fetchedTitle || urlSlugTitleLabel(artifact.href) : artifact.label
 
   return (
-    <ArtifactCellAction
-      href={isLink ? artifact.href : undefined}
-      onClick={isLink ? undefined : () => void ctx.onOpen(artifact)}
-      title={label}
-    >
+    <div className="flex flex-col">
+      <ArtifactCellAction
+        href={isLink ? artifact.href : undefined}
+        onClick={isLink ? undefined : () => void ctx.onOpen(artifact)}
+        title={label}
+      >
       <span className="mt-0.5 grid size-6 shrink-0 place-items-center self-start rounded-md bg-(--ui-bg-tertiary) text-(--ui-text-tertiary)">
         <Icon className="size-3.5" />
       </span>
@@ -607,9 +692,42 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
         {label}
         {isLink && <ExternalLinkIcon />}
       </span>
-    </ArtifactCellAction>
+      </ArtifactCellAction>
+      <div className="px-2.5 pb-1">
+        <ArchivosDeTrabajo artifact={artifact} onOpen={item => void ctx.onOpen(item)} />
+      </div>
+    </div>
   )
 })
+
+// kelvo: parche 32, los archivos de trabajo del entregable, plegados
+function ArchivosDeTrabajo({ artifact, onOpen }: { artifact: ArtifactRecord; onOpen: (artifact: ArtifactRecord) => void }) {
+  const trabajo = (artifact as ArtifactConTrabajo).trabajo ?? []
+
+  if (trabajo.length === 0) {
+    return null
+  }
+
+  return (
+    <details className="text-[0.625rem] text-(--ui-text-tertiary)">
+      <summary className="cursor-pointer select-none">Archivos de trabajo ({trabajo.length})</summary>
+      <ul className="mt-1 max-h-40 space-y-0.5 overflow-y-auto">
+        {trabajo.map(item => (
+          <li key={item.id}>
+            <button
+              className="w-full truncate text-left hover:text-foreground hover:underline"
+              onClick={() => onOpen(item)}
+              title={item.value}
+              type="button"
+            >
+              {item.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
+  )
+}
 
 const LocationCell = memo(function LocationCell({ artifact }: { artifact: ArtifactRecord; ctx: CellCtx }) {
   const { t } = useI18n()
