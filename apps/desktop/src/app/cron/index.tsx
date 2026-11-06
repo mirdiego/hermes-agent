@@ -93,6 +93,9 @@ import { catchUpChoice, catchUpValue, jobLastCancelReason, jobRunLive } from './
 import { LastCancelledNote, RunStopAction } from './run-stop-action'
 import { useCronRunStop } from './use-cron-run-stop'
 
+// kelvo: parche 28
+const MOSTRAR_PLANTILLAS: boolean = false
+
 const DEFAULT_DELIVER = 'local'
 
 // Radix <SelectItem> rejects empty-string values, so the "no override" row in
@@ -138,6 +141,13 @@ const truncate = (value: string, max = 80): string => truncateText(value, max)
 
 function jobName(job: CronJob): string {
   return asText(job.name).trim()
+}
+
+// kelvo: parche 29
+function kelvoResumen(texto: string): string {
+  const primera = texto.split('\n').map(linea => linea.replace(/^#+\s*/, '').trim()).find(Boolean) ?? ''
+
+  return primera.length > 220 ? `${primera.slice(0, 217)}…` : primera
 }
 
 function jobPrompt(job: CronJob): string {
@@ -433,7 +443,8 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
   })
 
   const visibleBlueprints = useMemo(() => {
-    const list = blueprintsQuery.data ?? []
+    // kelvo: parche 28, sin las plantillas de fábrica (en inglés y de uso personal) en la lista de Tareas
+    const list = MOSTRAR_PLANTILLAS ? (blueprintsQuery.data ?? []) : []
     const needle = query.trim().toLowerCase()
 
     return needle ? list.filter(item => `${item.title} ${item.description}`.toLowerCase().includes(needle)) : list
@@ -979,7 +990,12 @@ function CronJobDetail({
       {description ? (
         <section className="space-y-1.5">
           <PanelSectionLabel>{scriptOnly && !prompt ? c.scriptLabel : c.promptLabel}</PanelSectionLabel>
-          <PanelBlock>{description}</PanelBlock>
+          {/* kelvo: parche 29, un resumen legible y las instrucciones técnicas plegadas */}
+          <PanelBlock>{kelvoResumen(description)}</PanelBlock>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer select-none">Ver instrucciones</summary>
+            <PanelBlock>{description}</PanelBlock>
+          </details>
         </section>
       ) : null}
 
