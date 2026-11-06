@@ -36,6 +36,10 @@ const GatewaySettings = lazy(() =>
   import('@/app/settings/gateway-settings').then(module => ({ default: module.GatewaySettings }))
 )
 
+// kelvo: parche W2
+const KELVO_SIN_CAJA = 'No se pudo conectar con la caja de Kelvo. Revisa Tailscale y tu token.'
+const KELVO_SIN_CAJA_PISTA = 'Revisa que Tailscale esté conectado a la tailnet de Kelvo y que el token guardado sea el que te mandó Diego. Después presiona Reintentar.'
+
 type BusyAction = 'local' | 'repair' | 'retry' | 'signin' | null
 type RecoveryView = 'connect' | 'recovery'
 
@@ -373,10 +377,14 @@ export function BootFailureOverlay() {
 
   // SSH failures keep their own gloss; every other local failure is classified
   // into one plain sentence, raw output collapsed underneath (desktop-05).
+  // kelvo: parche W2, una caja remota caída se explica en español y sin la marca de fábrica; el error crudo queda
+  // plegado debajo, como en el resto de fallas.
   const failureCopy: LocalBootFailureCopy =
     connectionConfig?.mode === 'ssh'
       ? { headline: sshFailureMessage(connectionConfig, boot.error, t.settings.gateway), rawDetail: null }
-      : localBootFailureCopy(boot.error, t.boot.causes)
+      : !remoteReauth && (remoteFailure || connectionConfig?.mode === 'remote' || /Hermes gateway|WebSocket error/i.test(String(boot.error || '')))
+        ? { headline: KELVO_SIN_CAJA, rawDetail: String(boot.error || '').trim() || null }
+        : localBootFailureCopy(boot.error, t.boot.causes)
 
   const label = signInLabel(remoteReauth, {
     identityProvider: copy.identityProvider,
@@ -470,7 +478,7 @@ export function BootFailureOverlay() {
     hint = copy.cloudDownHint
   } else if (remoteFailure) {
     actions = [settingsAction, { ...retryAction, variant: 'secondary' }, localAction]
-    hint = copy.remoteFailureHint
+    hint = KELVO_SIN_CAJA_PISTA // kelvo: parche W2
   } else {
     // Local failure: Use-local is redundant with Retry (both re-target local), so
     // it's dropped here; keep it for remote failures where it's the fall-back.
@@ -502,6 +510,10 @@ export function BootFailureOverlay() {
     actions = [retryAction, ...(fixAction ? [fixAction] : []), { ...settingsAction, variant: 'ghost' }]
     hint = damagedPayload ? copy.bundledReinstallHint : bundled ? '' : copy.repairHint
   }
+
+  // kelvo: parche W2, sin «Usar gateway local»: Kelvo es sólo remoto y ese botón lleva a instalar Hermes en el
+  // computador, que es justo lo que no se quiere.
+  actions = actions.filter(action => action.key !== 'local')
 
   if (view === 'connect') {
     return (
