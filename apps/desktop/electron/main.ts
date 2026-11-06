@@ -747,7 +747,20 @@ if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
     ).trim()
 
     if (kelvoToken) {
-      process.env.HERMES_DESKTOP_REMOTE_URL = 'https://gpu-01.tail3ecca3.ts.net:8443'
+      // Una instalación puede traer su gateway en Resources/kelvo-gateway (la de los socios apunta a otro puerto).
+      let kelvoUrl = 'https://gpu-01.tail3ecca3.ts.net:8443'
+
+      try {
+        const propia = fs.readFileSync(path.join(process.resourcesPath || '', 'kelvo-gateway'), 'utf8').trim()
+
+        if (/^https:\/\/[A-Za-z0-9.-]+(:\d+)?(\/[A-Za-z0-9._/-]*)?$/.test(propia)) {
+          kelvoUrl = propia
+        }
+      } catch {
+        // sin archivo: el gateway de la demo
+      }
+
+      process.env.HERMES_DESKTOP_REMOTE_URL = kelvoUrl
       process.env.HERMES_DESKTOP_REMOTE_TOKEN = kelvoToken
     }
   } catch {
