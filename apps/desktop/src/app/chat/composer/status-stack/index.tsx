@@ -47,6 +47,9 @@ import { StatusItemRow } from './status-row'
 import { SubagentSection } from './subagent-section'
 import { useSubagentSnapshot } from './use-subagent-snapshot'
 
+// kelvo: parche 9
+const MOSTRAR_NOUS: boolean = false
+
 // Slow safety-net poll for silent exits (processes without notify_on_complete
 // emit no event when they die). Only armed while a running row is on screen.
 const BACKGROUND_POLL_MS = 5_000
@@ -225,18 +228,19 @@ export function ComposerStatusStack({ onSubmit, queue, sessionId }: ComposerStat
   // Billing wall sits at the very top of the stack — it's the most important
   // thing above the composer when the account is out of credits. Rendered here
   // (not as a composer-disable) so slash commands stay usable.
-  if (billing && sessionId && billing.sessionId === sessionId) {
+  // kelvo: parche 9, sin facturación, plan gratis ni métricas de Nous
+  if (MOSTRAR_NOUS && billing && sessionId && billing.sessionId === sessionId) {
     sections.push({ key: 'billing', node: <BillingBanner sessionId={sessionId} /> })
   }
 
   // Below the billing wall (a blocker outranks an offer), above everything the
   // session itself is doing. The strip retires itself the moment any of its
   // actions acks the notice.
-  if (freeTierNotice) {
+  if (MOSTRAR_NOUS && freeTierNotice) {
     sections.push({ key: 'free-tier', node: <FreeTierNoticeStrip /> })
   }
 
-  if (sharedMetricsOffer) {
+  if (MOSTRAR_NOUS && sharedMetricsOffer) {
     sections.push({ key: 'shared-metrics', node: <SharedMetricsConsentStrip /> })
   }
 

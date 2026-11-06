@@ -78,7 +78,7 @@ module.exports = {
   protocols: [
     {
       name: `${displayName} Protocol`,
-      schemes: ['hermes']
+      schemes: ['kelvo'] // kelvo: parche 4
     }
   ],
   // A store build is archived, never served to a feed — prefix its artifact

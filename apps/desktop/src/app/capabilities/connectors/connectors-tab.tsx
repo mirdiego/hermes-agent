@@ -104,7 +104,7 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
     () =>
       deriveCards({
         bundled,
-        hosted: forgetAbandoned(hosted.rows, new Set(abandoned)),
+        hosted: forgetAbandoned([], new Set(abandoned)), // kelvo: parche 13, sin conectores alojados de Nous (antes hosted.rows)
         local: servers,
         titles: hosted.titles
       }),

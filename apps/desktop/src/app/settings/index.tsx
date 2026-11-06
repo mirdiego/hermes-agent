@@ -10,7 +10,6 @@ import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {
   Archive,
-  BarChart3,
   Bell,
   Cpu,
   Download,
@@ -22,7 +21,6 @@ import {
   RefreshCw,
   Search,
   Settings2,
-  ShieldLock,
   Upload,
   Wrench,
   Zap
@@ -270,18 +268,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
 
             // Credential Vault lives beside the Browser section: it feeds the
             // browser's model-blind vault fill, so the two are one mental unit.
-            if (s.id === 'browser') {
-              return [
-                entry,
-                {
-                  active: activeView === 'vault',
-                  icon: ShieldLock,
-                  id: 'vault',
-                  label: t.settings.nav.vault,
-                  onSelect: () => setActiveView('vault')
-                }
-              ]
-            }
+            // kelvo: parche 11, sin Contraseñas (vault)
 
             return [entry]
           }),
@@ -292,33 +279,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
             label: t.settings.nav.notifications,
             onSelect: () => setActiveView('notifications')
           },
-          {
-            active: activeView === 'billing',
-            children: [
-              {
-                active: activeView === 'billing' && (billingView === 'overview' || !canViewPlans),
-                icon: BarChart3,
-                id: 'bview:overview',
-                label: t.settings.subpages.billingOverview,
-                onSelect: () => openSubView('billing', 'bview', 'overview', 'overview')
-              },
-              ...(canViewPlans
-                ? [
-                    {
-                      active: activeView === 'billing' && billingView === 'plans',
-                      icon: BarChart3,
-                      id: 'bview:plans',
-                      label: t.settings.subpages.billingPlans,
-                      onSelect: () => openSubView('billing', 'bview', 'plans', 'overview')
-                    }
-                  ]
-                : [])
-            ],
-            icon: BarChart3,
-            id: 'billing',
-            label: t.settings.nav.billing,
-            onSelect: () => setActiveView('billing')
-          },
+          // kelvo: parche 11, sin Facturación
           {
             active: activeView === 'providers',
             children: [

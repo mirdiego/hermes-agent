@@ -117,7 +117,6 @@ import { $terminalTakeover, setTerminalTakeover } from '../right-sidebar/store'
 import { terminalPaletteToggle } from '../right-sidebar/terminal/reveal-focus'
 import { $workspaceIsPage, WORKSPACE_PAGE_HEADER_AREA } from '../routes'
 import { Butterbar } from '../shell/butterbar'
-import { TermsButterbar } from '../shell/terms-butterbar'
 
 import { BASIC_TREE, DEFAULT_TREE, registerLayoutPresets } from './layout-presets'
 import { bindLayoutSides } from './layout-sides'
@@ -235,6 +234,7 @@ registry.registerMany([
   {
     id: 'terminal',
     area: 'panes',
+    enabled: false, // kelvo: parche 12, sin terminal en el panel derecho
     // Register-time sample; the tab renders `tabTitle` (see sessions).
     title: translateNow('sidebar.terminal'),
     // height sizes the fixed track (a single-pane zone declaring a height is a
@@ -275,6 +275,7 @@ registry.registerMany([
   {
     id: 'review',
     area: 'panes',
+    enabled: false, // kelvo: parche 12, sin review en el panel derecho
     title: translateNow('sidebar.review'),
     // The second right sidebar: hidden until ⌘G ($reviewOpen) — bound below
     // like the other chrome toggles; its zone collapses while hidden.
@@ -842,7 +843,7 @@ export function ContribController() {
           {/* Notices registered through `registerButterbar` / `useButterbar`;
               renders nothing while none are registered. */}
           <Butterbar />
-          <TermsButterbar />
+          {/* kelvo: parche 8, sin aviso de términos de Nous */}
           {statusbarVisible && <WiredPane part="statusbar" />}
         </div>
       </ContribWiring>

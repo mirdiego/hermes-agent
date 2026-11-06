@@ -9,11 +9,12 @@
 'use strict'
 
 const variants = {
-  '': { display: 'Hermes', kebab: 'hermes', pascal: 'Hermes' },
+  // kelvo: marca Kelvo (parche 1 de KELVO-PARCHES.md)
+  '': { display: 'Kelvo', kebab: 'kelvo', pascal: 'Kelvo' },
   light: {
-    display: 'Hermes Light',
-    kebab: 'hermes-light',
-    pascal: 'HermesLight'
+    display: 'Kelvo',
+    kebab: 'kelvo',
+    pascal: 'Kelvo'
   },
   bundled: {
     display: 'Hermes Agent',
@@ -66,14 +67,15 @@ const identity = {
   store,
   light,
   displayName,
-  appId: `com.nousresearch.${name.kebab}${kebabSuffix}`,
+  appId: `cl.kelvo.${name.kebab}${kebabSuffix}`,
   // Store and commit builds do not publish a release feed.
-  channel: store || buildCommit ? null : light ? (canary ? 'light-canary' : 'light') : (canary ? 'canary' : 'latest'),
+  // kelvo: sin feed de actualizaciones (no apunta a Nous)
+  channel: null,
   appNamePascal: `${name.pascal}${pascalSuffix}`,
   artifactNamePascal: name.pascal,
   windowsExecutableName: kebabSuffix ? cliName : displayName,
   cliName,
-  msixAppIdWithOrg: `NousResearch.${name.pascal}${pascalSuffix}`,
+  msixAppIdWithOrg: `Kelvo.${name.pascal}${pascalSuffix}`,
   ...(store
     ? {
         storeMsix: {
