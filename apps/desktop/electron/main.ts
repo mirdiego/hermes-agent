@@ -735,6 +735,11 @@ if (USER_DATA_OVERRIDE || process.env.HERMES_DATA_DIR_SUFFIX) {
   app.setPath('userData', resolvedUserData)
 }
 
+// kelvo: parche 20, carpeta propia para no mezclarse con el Kelvo Desktop anterior, que usa «Kelvo».
+if (!USER_DATA_OVERRIDE && !process.env.HERMES_DATA_DIR_SUFFIX) {
+  app.setPath('userData', path.join(app.getPath('appData'), 'Kelvo-Hermes'))
+}
+
 // Only the lock owner may persist launch recovery markers, adopt a workspace or start a
 // backend, so the lock is taken as soon as userData is final (#131055, #143056).
 // #78101: on Linux/X11 a zombie/defunct Electron process leaves the
