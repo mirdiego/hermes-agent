@@ -1,11 +1,17 @@
-// Puente de la Bandeja con la API del estudio: el proceso principal de Electron (parche 18, window.kelvoEstudio) hace la
-// llamada con la llave del Llavero; aquí sólo viaja el pedido y la respuesta.
+// Puente de la Bandeja con la API del estudio y con el cliente simulado: el proceso principal de Electron (parches 18 y
+// 30, window.kelvoEstudio) hace las llamadas con las llaves del Llavero; aquí sólo viajan el pedido y la respuesta.
 
 export type Pedido = { method?: 'GET' | 'POST'; path: string; body?: unknown }
 export type Respuesta = { ok: boolean; status: number; datos?: unknown; error?: string }
+export type PedidoCliente = { input: string; sesion: string }
+export type RespuestaCliente = { ok: boolean; status?: number | string; run_id?: string; output?: string; error?: string }
+
 declare global {
   interface Window {
-    kelvoEstudio?: { pedir: (pedido: Pedido) => Promise<Respuesta> }
+    kelvoEstudio?: {
+      pedir: (pedido: Pedido) => Promise<Respuesta>
+      cliente?: (pedido: PedidoCliente) => Promise<RespuestaCliente>
+    }
   }
 }
 
@@ -15,4 +21,13 @@ export async function pedir(pedido: Pedido): Promise<Respuesta> {
   }
 
   return window.kelvoEstudio.pedir(pedido)
+}
+
+/** Una corrida del perfil cliente-simulado de la caja; espera hasta que termine. */
+export async function correrCliente(pedido: PedidoCliente): Promise<RespuestaCliente> {
+  if (!window.kelvoEstudio?.cliente) {
+    return { ok: false, error: 'La app no trae el puente del cliente simulado' }
+  }
+
+  return window.kelvoEstudio.cliente(pedido)
 }

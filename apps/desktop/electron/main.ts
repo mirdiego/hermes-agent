@@ -16186,6 +16186,80 @@ function kelvoEstudioLlave(): string {
   }
 }
 
+// kelvo: parche 30, «Probar como cliente» de la Bandeja: el proceso principal corre el perfil cliente-simulado de la
+// caja por su servidor de API (POST /v1/runs) con la llave del Llavero (servicio kelvo-cliente-api) y espera el
+// resultado consultando GET /v1/runs/<id>. El renderer manda sólo el texto y la sesión; nunca ve la llave.
+const KELVO_CLIENTE_BASE = process.env.KELVO_CLIENTE_BASE || 'https://gpu-01.tail3ecca3.ts.net/hermes-cliente-api'
+const KELVO_CLIENTE_TERMINALES = new Set(['completed', 'failed', 'cancelled', 'interrupted'])
+
+function kelvoClienteLlave(): string {
+  try {
+    return execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-cliente-api', '-a', 'diego', '-w'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000
+    }).trim()
+  } catch {
+    return ''
+  }
+}
+
+ipcMain.handle('kelvo:cliente', async (_event, pedido: { input?: string; sesion?: string }) => {
+  const input = typeof pedido?.input === 'string' ? pedido.input.slice(0, 20000) : ''
+  const sesion = typeof pedido?.sesion === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(pedido.sesion) ? pedido.sesion : ''
+
+  if (!input || !sesion) {
+    return { ok: false, error: 'falta el texto o la sesión' }
+  }
+
+  const llave = kelvoClienteLlave()
+
+  if (!llave) {
+    return { ok: false, error: 'falta la llave kelvo-cliente-api en el Llavero' }
+  }
+
+  const cabeceras = { authorization: `Bearer ${llave}`, 'content-type': 'application/json' }
+
+  try {
+    const inicio = await fetch(`${KELVO_CLIENTE_BASE}/v1/runs`, {
+      method: 'POST',
+      headers: cabeceras,
+      body: JSON.stringify({ input, session_id: sesion }),
+      signal: AbortSignal.timeout(30000)
+    })
+    const creada = (await inicio.json().catch(() => ({}))) as { run_id?: string; error?: unknown }
+
+    if (!inicio.ok || !creada.run_id) {
+      return { ok: false, status: inicio.status, error: `el cliente simulado respondió ${inicio.status}` }
+    }
+
+    const limite = Date.now() + 15 * 60 * 1000
+
+    while (Date.now() < limite) {
+      await new Promise(resolver => setTimeout(resolver, 2500))
+      const r = await fetch(`${KELVO_CLIENTE_BASE}/v1/runs/${encodeURIComponent(creada.run_id)}`, {
+        headers: cabeceras,
+        signal: AbortSignal.timeout(20000)
+      })
+      const estado = (await r.json().catch(() => ({}))) as { status?: string; output?: unknown; error?: unknown }
+
+      if (estado.status && KELVO_CLIENTE_TERMINALES.has(estado.status)) {
+        return {
+          ok: estado.status === 'completed',
+          status: estado.status,
+          run_id: creada.run_id,
+          output: typeof estado.output === 'string' ? estado.output : '',
+          error: typeof estado.error === 'string' ? estado.error : undefined
+        }
+      }
+    }
+
+    return { ok: false, status: 'timeout', run_id: creada.run_id, error: 'la corrida tardó más de 15 minutos' }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
+})
+
 ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?: string; body?: unknown }) => {
   const method = pedido?.method === 'POST' ? 'POST' : 'GET'
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''

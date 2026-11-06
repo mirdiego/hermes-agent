@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { pedir } from './bandeja-api'
 import { DarAcceso, FichaCliente, FilaCliente, useClientes } from './clientes'
+import { FichaServicio, FilaServicio, useServicios } from './servicios'
 
 type Registro = Record<string, unknown>
 
@@ -135,6 +136,8 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const [darAcceso, setDarAcceso] = useState(false)
   const [clienteId, setClienteId] = useState<string | null>(null)
   const { clientes, error: errorClientes, cargar: cargarClientes } = useClientes()
+  const { servicios, error: errorServicios, cargar: cargarServicios } = useServicios()
+  const [servicioSlug, setServicioSlug] = useState<string | null>(null)
   const [elegida, setElegida] = useState<string | null>(null)
   const [ficha, setFicha] = useState<Registro | null>(null)
   const [hilo, setHilo] = useState<Registro[]>([])
@@ -181,6 +184,8 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
 
   const filtro = GRUPOS.find(g => g.id === grupo) ?? GRUPOS[0]
   const enClientes = grupo === 'clientes'
+  const enServicios = grupo === 'servicios'
+  const servicioActual = servicios.find(x => String(x.slug) === servicioSlug) ?? null
   const clienteActual = clientes.find(c => String(c.id) === clienteId) ?? null
   const visibles = useMemo(() => solicitudes.filter(s => filtro.filtra(texto(s.estado))), [solicitudes, filtro])
   const actual = solicitudes.find(s => texto(s.codigo) === elegida) ?? null
@@ -274,7 +279,31 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
               <span className="flex-1">Clientes</span>
               <span className="font-mono text-[10.5px]">{clientes.length}</span>
             </button>
+            <button
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px]',
+                enServicios ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
+              )}
+              onClick={() => {
+                setGrupo('servicios')
+                void cargarServicios()
+              }}
+              type="button"
+            >
+              <span className="flex-1">Servicios</span>
+              <span className="font-mono text-[10.5px]">{servicios.length}</span>
+            </button>
           </div>
+          {enServicios && errorServicios && <div className="px-3 py-2 text-xs text-destructive">{errorServicios}</div>}
+          {enServicios &&
+            servicios.map(x => (
+              <FilaServicio
+                elegido={String(x.slug) === servicioSlug}
+                key={String(x.slug)}
+                onElegir={() => setServicioSlug(String(x.slug))}
+                servicio={x}
+              />
+            ))}
           {enClientes && errorClientes && <div className="px-3 py-2 text-xs text-destructive">{errorClientes}</div>}
           {enClientes &&
             clientes.map(c => (
@@ -285,11 +314,11 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                 onElegir={() => setClienteId(String(c.id))}
               />
             ))}
-          {!enClientes && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
-          {!enClientes && !error && visibles.length === 0 && (
+          {!enClientes && !enServicios && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
+          {!enClientes && !enServicios && !error && visibles.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No hay solicitudes en este grupo.</div>
           )}
-          {!enClientes && visibles.map(s => {
+          {!enClientes && !enServicios && visibles.map(s => {
             const codigo = texto(s.codigo)
 
             return (
@@ -317,7 +346,13 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
           })}
         </div>
         <div className="flex min-h-0 flex-col">
-          {enClientes ? (
+          {enServicios ? (
+            servicioActual ? (
+              <FichaServicio key={String(servicioActual.slug)} onSolicitudCreada={() => void cargar()} servicio={servicioActual} />
+            ) : (
+              <div className="m-auto text-sm text-muted-foreground">Elige un servicio para ver su ficha.</div>
+            )
+          ) : enClientes ? (
             clienteActual ? (
               <FichaCliente cliente={clienteActual} onCambio={() => void cargarClientes()} />
             ) : (
