@@ -31,7 +31,9 @@ import { unwrapExpectedNotFound } from './api-expected-404'
 
 // kelvo: parche 18, puente de la Bandeja de solicitudes (ver electron/main.ts, kelvo:estudio)
 contextBridge.exposeInMainWorld('kelvoEstudio', {
-  pedir: (pedido: { method?: string; path?: string; body?: unknown }) => ipcRenderer.invoke('kelvo:estudio', pedido)
+  pedir: (pedido: { method?: string; path?: string; body?: unknown }) => ipcRenderer.invoke('kelvo:estudio', pedido),
+  // kelvo: parche 30
+  cliente: (pedido: { input: string; sesion: string }) => ipcRenderer.invoke('kelvo:cliente', pedido)
 })
 
 contextBridge.exposeInMainWorld('hermesDesktop', {
