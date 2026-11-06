@@ -37,6 +37,8 @@ La app tiene que abrir conectada, en español, con la marca Kelvo y con la barra
 
 Si el script dice que no pudo bajar el instalador, revisa Tailscale (paso 1). Si dice que el portapapeles no tiene el token, cópialo de nuevo y vuelve a pegar la línea. Si la app abre en «Configurar Kelvo» o con un asistente para elegir proveedor, no elijas nada y avísale a Diego: puede faltar la llave del modelo en la caja.
 
+Para tu Claude, si hay que diagnosticar: el registro de la app está en `%LOCALAPPDATA%\hermes\logs\desktop.log`. La línea `[kelvo] gateway remoto:` dice si la app encontró el token: «https://gpu-01… con el token kelvo-gateway del llavero» si lo encontró, o «sin token kelvo-gateway en el llavero» si no. Esa línea nunca trae el token.
+
 Para reinstalar una versión nueva, pega la misma línea; si no copiaste un token, usa el que ya quedó guardado.
 
 ## 4. La llave de la Bandeja (2 minutos)

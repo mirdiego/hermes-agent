@@ -1872,23 +1872,8 @@ Menu.setApplicationMenu(null)
 // need this, so gate it on Windows. (Fixes: desktop approval/turn notifications
 // never firing on Windows.)
 if (IS_WINDOWS) {
-  app.setAppUserModelId(IDENTITY_APP_NAME ? PRODUCT_IDENTITY.appId : 'com.nousresearch.hermes')
+  app.setAppUserModelId(PRODUCT_IDENTITY.appId) // kelvo: parche W1, siempre el appId de Kelvo (antes caía en com.nousresearch.hermes)
 
-  // kelvo: parche W1, el instalador NSIS de Kelvo (packaging/kelvo-windows) crea el acceso del menú Inicio sin
-  // AppUserModelID; se lo pone la app para que las notificaciones de Windows aparezcan.
-  const kelvoAcceso = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Kelvo Hermes.lnk')
-
-  if (IDENTITY_APP_NAME && fs.existsSync(kelvoAcceso)) {
-    try {
-      const actual = shell.readShortcutLink(kelvoAcceso)
-
-      if (actual.appUserModelId !== PRODUCT_IDENTITY.appId) {
-        shell.writeShortcutLink(kelvoAcceso, 'update', { ...actual, appUserModelId: PRODUCT_IDENTITY.appId })
-      }
-    } catch (error) {
-      console.error('[kelvo] no pude marcar el acceso del menú Inicio:', error)
-    }
-  }
 }
 
 // Seed the native About panel with the best-known Hermes version. This is
@@ -2257,6 +2242,28 @@ function rememberLog(chunk) {
 }
 
 rememberLog(`[kelvo] gateway remoto: ${kelvoConexion}`) // kelvo: parche W1
+
+// kelvo: parche W1, el instalador NSIS de Kelvo (packaging/kelvo-windows) crea el acceso del menú Inicio sin
+// AppUserModelID; se lo pone la app para que las notificaciones de Windows aparezcan, y deja el resultado en desktop.log.
+if (IS_WINDOWS) {
+  const kelvoAcceso = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Kelvo Hermes.lnk')
+
+  if (fs.existsSync(kelvoAcceso)) {
+    try {
+      const actual = shell.readShortcutLink(kelvoAcceso)
+
+      if (actual.appUserModelId !== PRODUCT_IDENTITY.appId) {
+        shell.writeShortcutLink(kelvoAcceso, 'update', { ...actual, appUserModelId: PRODUCT_IDENTITY.appId })
+      }
+
+      rememberLog(`[kelvo] acceso del menú Inicio: AppUserModelID ${shell.readShortcutLink(kelvoAcceso).appUserModelId || '(vacío)'}`)
+    } catch (error) {
+      rememberLog(`[kelvo] acceso del menú Inicio: no pude marcarlo (${error instanceof Error ? error.message : String(error)})`)
+    }
+  } else {
+    rememberLog(`[kelvo] acceso del menú Inicio: no existe ${kelvoAcceso}`)
+  }
+}
 
 // Main-process stalls leave renderer-scoped lifecycle logging unable to run.
 // When the loop resumes, retain the delayed timer's timing in desktop.log so a

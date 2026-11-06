@@ -160,10 +160,9 @@ jobs:
           if ($con -notmatch 'gateway remoto: https://gpu-01\.tail3ecca3\.ts\.net:8443 con el token kelvo-gateway del llavero') { throw 'la app no tomó el token del Administrador de credenciales' }
           if ($con -match 'falso-') { throw 'el token aparece en el log' }
 
-          $carpetaInicio = [Environment]::GetFolderPath('Programs')
-          $aumid = (New-Object -ComObject Shell.Application).NameSpace($carpetaInicio).ParseName('Kelvo Hermes.lnk').ExtendedProperty('System.AppUserModel.ID')
-          "AppUserModelID del acceso del menú Inicio: $aumid"
-          if ($aumid -ne 'cl.kelvo.kelvo-hermes') { throw 'el acceso del menú Inicio no quedó con el AppUserModelID de la app (sin notificaciones)' }
+          $acceso = @(Get-Content -LiteralPath "$env:LOCALAPPDATA\hermes\logs\desktop.log" -ErrorAction SilentlyContinue | Select-String -SimpleMatch '[kelvo] acceso del menú Inicio:')
+          "acceso del menú Inicio -> $($acceso[-1].Line)"
+          if ($acceso.Count -eq 0 -or $acceso[-1].Line -notmatch 'AppUserModelID cl\.kelvo\.kelvo-hermes') { throw 'el acceso del menú Inicio no quedó con el AppUserModelID de la app (sin notificaciones)' }
 
           # La llave kv_ de la Bandeja, con llavero-socio.ps1 estudio (llave falsa con la forma de una real).
           Set-Clipboard -Value ('kv_' + ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')).Substring(0, 43))
