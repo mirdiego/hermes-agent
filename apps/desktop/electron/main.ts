@@ -755,13 +755,16 @@ if (!process.env.HERMES_DESKTOP_REMOTE_URL) {
   }
 }
 
-// kelvo: parche 21, una instalación puede traer su perfil fijo (la de los socios abre socios-prueba): si la app trae
-// Resources/kelvo-perfil y no vino --profile, se agrega antes de que se lea el perfil de arranque.
+// kelvo: parche 21, perfil fijo por instalación: Resources/kelvo-perfil (la de los socios trae socios-prueba) o, sin
+// archivo, greenlab. Si no vino --profile, se agrega antes de que se lea el perfil de arranque.
 try {
   const kelvoPerfilArchivo = path.join(process.resourcesPath || '', 'kelvo-perfil')
 
-  if (!process.argv.some(arg => arg === '--profile' || arg.startsWith('--profile=')) && fs.existsSync(kelvoPerfilArchivo)) {
-    const kelvoPerfil = fs.readFileSync(kelvoPerfilArchivo, 'utf8').trim().toLowerCase()
+  if (!process.argv.some(arg => arg === '--profile' || arg.startsWith('--profile='))) {
+    // Sin archivo, el perfil de la demo: el gateway sin perfil contesta por el perfil raíz de la máquina.
+    const kelvoPerfil = fs.existsSync(kelvoPerfilArchivo)
+      ? fs.readFileSync(kelvoPerfilArchivo, 'utf8').trim().toLowerCase()
+      : 'greenlab'
 
     if (/^[a-z0-9][a-z0-9_-]{0,63}$/.test(kelvoPerfil)) {
       process.argv.push(`--profile=${kelvoPerfil}`)
