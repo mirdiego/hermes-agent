@@ -16120,7 +16120,12 @@ ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?:
   const method = pedido?.method === 'POST' ? 'POST' : 'GET'
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''
 
-  if (!/^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta)) {
+  const permitida =
+    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/clientes(\/[A-Za-z0-9_-]+\/llave)?$/.test(ruta) ||
+    /^\/llaves\/[A-Za-z0-9_-]+\/revocar$/.test(ruta)
+
+  if (!permitida) {
     return { ok: false, status: 400, error: 'ruta no permitida' }
   }
 

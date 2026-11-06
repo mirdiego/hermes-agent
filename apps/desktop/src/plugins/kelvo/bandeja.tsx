@@ -5,23 +5,12 @@
 import { Button, cn, MessageTextContent } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-type Pedido = { method?: 'GET' | 'POST'; path: string; body?: unknown }
-type Respuesta = { ok: boolean; status: number; datos?: unknown; error?: string }
+import { pedir } from './bandeja-api'
+import { DarAcceso, FichaCliente, FilaCliente, useClientes } from './clientes'
+
 type Registro = Record<string, unknown>
 
-declare global {
-  interface Window {
-    kelvoEstudio?: { pedir: (pedido: Pedido) => Promise<Respuesta> }
-  }
-}
-
-export async function pedir(pedido: Pedido): Promise<Respuesta> {
-  if (!window.kelvoEstudio) {
-    return { ok: false, status: 0, error: 'La app no trae el puente kelvoEstudio' }
-  }
-
-  return window.kelvoEstudio.pedir(pedido)
-}
+export { pedir } from './bandeja-api'
 
 /** Píldoras de la Bandeja a partir de los estados reales de la cola. */
 export const ESTADOS: Record<string, { etiqueta: string; tono: string }> = {
@@ -111,7 +100,10 @@ function Pildora({ estado }: { estado: string }) {
 export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) {
   const [solicitudes, setSolicitudes] = useState<Registro[]>([])
   const [error, setError] = useState('')
-  const [grupo, setGrupo] = useState<(typeof GRUPOS)[number]['id']>('solicitudes')
+  const [grupo, setGrupo] = useState<string>('solicitudes')
+  const [darAcceso, setDarAcceso] = useState(false)
+  const [clienteId, setClienteId] = useState<string | null>(null)
+  const { clientes, error: errorClientes, cargar: cargarClientes } = useClientes()
   const [elegida, setElegida] = useState<string | null>(null)
   const [ficha, setFicha] = useState<Registro | null>(null)
   const [hilo, setHilo] = useState<Registro[]>([])
@@ -157,6 +149,8 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   }, [])
 
   const filtro = GRUPOS.find(g => g.id === grupo) ?? GRUPOS[0]
+  const enClientes = grupo === 'clientes'
+  const clienteActual = clientes.find(c => String(c.id) === clienteId) ?? null
   const visibles = useMemo(() => solicitudes.filter(s => filtro.filtra(texto(s.estado))), [solicitudes, filtro])
   const actual = solicitudes.find(s => texto(s.codigo) === elegida) ?? null
   const borrador = borradorDe(ficha)
@@ -186,12 +180,16 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+    <div className="relative flex h-full min-h-0 flex-col bg-background text-foreground">
+      {darAcceso && <DarAcceso onCerrar={() => setDarAcceso(false)} onCreado={() => void cargarClientes()} />}
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border px-4 text-sm font-semibold">
         Bandeja
         <span className="text-xs font-normal text-muted-foreground">
           {solicitudes.filter(s => texto(s.estado) === 'en_revision').length} esperan aprobación
         </span>
+        <Button className="ml-auto" onClick={() => setDarAcceso(true)} size="sm" type="button" variant="outline">
+          Dar acceso a un cliente
+        </Button>
       </div>
       <div className="grid min-h-0 flex-1 grid-cols-[320px_1fr]">
         <div className="min-h-0 overflow-y-auto border-r border-border bg-sidebar py-2">
@@ -214,12 +212,36 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                 </button>
               )
             })}
+            <button
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px]',
+                enClientes ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
+              )}
+              onClick={() => {
+                setGrupo('clientes')
+                void cargarClientes()
+              }}
+              type="button"
+            >
+              <span className="flex-1">Clientes</span>
+              <span className="font-mono text-[10.5px]">{clientes.length}</span>
+            </button>
           </div>
-          {error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
-          {!error && visibles.length === 0 && (
+          {enClientes && errorClientes && <div className="px-3 py-2 text-xs text-destructive">{errorClientes}</div>}
+          {enClientes &&
+            clientes.map(c => (
+              <FilaCliente
+                cliente={c}
+                elegido={String(c.id) === clienteId}
+                key={String(c.id)}
+                onElegir={() => setClienteId(String(c.id))}
+              />
+            ))}
+          {!enClientes && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
+          {!enClientes && !error && visibles.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No hay solicitudes en este grupo.</div>
           )}
-          {visibles.map(s => {
+          {!enClientes && visibles.map(s => {
             const codigo = texto(s.codigo)
 
             return (
@@ -244,7 +266,13 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
           })}
         </div>
         <div className="flex min-h-0 flex-col">
-          {!actual ? (
+          {enClientes ? (
+            clienteActual ? (
+              <FichaCliente cliente={clienteActual} onCambio={() => void cargarClientes()} />
+            ) : (
+              <div className="m-auto text-sm text-muted-foreground">Elige un cliente para ver su saldo y sus llaves.</div>
+            )
+          ) : !actual ? (
             <div className="m-auto text-sm text-muted-foreground">Elige una solicitud para ver su hilo.</div>
           ) : (
             <>
