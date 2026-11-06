@@ -6345,6 +6345,41 @@ function sendWindowStateChanged(nextIsFullscreen?: boolean, target = mainWindow)
   webContents.send('hermes:window-state-changed', state)
 }
 
+// kelvo: parche 27
+const KELVO_MENU_ROLES: Record<string, string> = {
+  services: 'Servicios', hide: `Ocultar ${APP_NAME}`, hideOthers: 'Ocultar otros', unhide: 'Mostrar todo',
+  quit: `Salir de ${APP_NAME}`, undo: 'Deshacer', redo: 'Rehacer', cut: 'Cortar', copy: 'Copiar', paste: 'Pegar',
+  pasteAndMatchStyle: 'Pegar con el mismo estilo', delete: 'Eliminar', selectAll: 'Seleccionar todo',
+  showSubstitutions: 'Mostrar sustituciones', toggleTextReplacement: 'Reemplazo de texto', forceReload: 'Forzar recarga',
+  togglefullscreen: 'Pantalla completa', minimize: 'Minimizar', zoom: 'Zoom', close: 'Cerrar ventana',
+  front: 'Traer todo al frente', window: 'Ventana', startSpeaking: 'Empezar a hablar', stopSpeaking: 'Dejar de hablar'
+}
+
+const KELVO_MENU_TEXTOS: Record<string, string> = {
+  File: 'Archivo', Edit: 'Edición', View: 'Ver', Window: 'Ventana', Help: 'Ayuda', Speech: 'Voz',
+  'New Window': 'Ventana nueva', 'Open Folder…': 'Abrir carpeta…', Close: 'Cerrar', Substitutions: 'Sustituciones',
+  Reload: 'Recargar', 'Toggle Developer Tools': 'Herramientas de desarrollo', 'Actual Size': 'Tamaño real',
+  'Zoom In': 'Acercar', 'Zoom Out': 'Alejar'
+}
+
+function kelvoMenuEnEspanol(items: MenuItemConstructorOptions[]): void {
+  for (const item of items) {
+    if (typeof item.label === 'string') {
+      if (item.label.startsWith('About ')) {
+        item.label = `Acerca de ${APP_NAME}`
+      } else if (KELVO_MENU_TEXTOS[item.label]) {
+        item.label = KELVO_MENU_TEXTOS[item.label]
+      }
+    } else if (item.role && KELVO_MENU_ROLES[item.role]) {
+      item.label = KELVO_MENU_ROLES[item.role]
+    }
+
+    if (Array.isArray(item.submenu)) {
+      kelvoMenuEnEspanol(item.submenu as MenuItemConstructorOptions[])
+    }
+  }
+}
+
 function buildApplicationMenu() {
   const template: MenuItemConstructorOptions[] = []
 
@@ -6476,6 +6511,9 @@ function buildApplicationMenu() {
   template.push(windowMenuTemplate(IS_MAC))
   // kelvo: parche 5, sin menú Help (sólo traía «Check for Updates»)
   void checkForUpdatesItem
+
+  // kelvo: parche 27, el menú de macOS en español (Electron deja los roles en inglés)
+  kelvoMenuEnEspanol(template)
 
   return Menu.buildFromTemplate(template)
 }
@@ -16153,8 +16191,10 @@ ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?:
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''
 
   const permitida =
-    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
-    /^\/clientes(\/[A-Za-z0-9_-]+\/llave)?$/.test(ruta) ||
+    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/clientes(\/[A-Za-z0-9_-]+\/llave)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/servicios(\/[A-Za-z0-9_-]+(\/simulaciones)?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/simulaciones\/[A-Za-z0-9_-]+(\/(ajustar|lanzar))?$/.test(ruta) ||
     /^\/llaves\/[A-Za-z0-9_-]+\/revocar$/.test(ruta)
 
   if (!permitida) {

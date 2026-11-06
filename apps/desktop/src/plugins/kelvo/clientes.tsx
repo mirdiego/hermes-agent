@@ -30,7 +30,7 @@ export function useClientes() {
   const [error, setError] = useState('')
 
   const cargar = useCallback(async () => {
-    const r = await pedir({ path: '/clientes' })
+    const r = await pedir({ path: '/clientes?estudio=greenlab' })
 
     if (!r.ok) {
       setError(texto((r.datos as Registro | null)?.error) || r.error || `La plataforma respondió ${r.status}`)
@@ -39,8 +39,7 @@ export function useClientes() {
     }
 
     setError('')
-    // Sólo los clientes de esta instalación (sala greenlab).
-    setClientes(clientesDe(r.datos).filter(c => !texto(c.sala) || texto(c.sala) === 'greenlab'))
+    setClientes(clientesDe(r.datos))
   }, [])
 
   useEffect(() => {
@@ -84,6 +83,7 @@ function LlaveUnaVez({ llave, onCerrar }: { llave: string; onCerrar: () => void 
 /** Panel «Dar acceso a un cliente»: sólo el nombre; al generar, la llave una sola vez. */
 export function DarAcceso({ onCerrar, onCreado }: { onCerrar: () => void; onCreado: () => void }) {
   const [nombre, setNombre] = useState('')
+  const [prueba, setPrueba] = useState(false)
   const [llave, setLlave] = useState('')
   const [error, setError] = useState('')
   const [enviando, setEnviando] = useState(false)
@@ -96,7 +96,7 @@ export function DarAcceso({ onCerrar, onCreado }: { onCerrar: () => void; onCrea
     const r = await pedir({
       method: 'POST',
       path: '/clientes',
-      body: { nombre: nombre.trim() }
+      body: { nombre: nombre.trim(), estudio: 'greenlab', ...(prueba ? { prueba: true } : {}) }
     })
 
     setEnviando(false)
@@ -134,6 +134,10 @@ export function DarAcceso({ onCerrar, onCreado }: { onCerrar: () => void; onCrea
                 placeholder="Ministerio, consultora o persona"
                 value={nombre}
               />
+            </label>
+            <label className="flex items-center gap-2" htmlFor="kelvo-cliente-prueba">
+              <input checked={prueba} id="kelvo-cliente-prueba" onChange={e => setPrueba(e.target.checked)} type="checkbox" />
+              <span>Cliente de prueba (sus solicitudes se pueden archivar)</span>
             </label>
             {error && <div className="text-destructive">{error}</div>}
             <div className="flex justify-end gap-2">

@@ -9,12 +9,13 @@ const REASONING_COLLAPSED_BY_DEFAULT_STORAGE_KEY = 'hermes.desktop.reasoning.col
 
 /** Desktop-local presentation preference; shared backend config must not be changed by a single window.
  *  Simple mode rests reasoning collapsed without touching this preference. */
-const $reasoningCollapsedByDefaultPref = atom(storedBoolean(REASONING_COLLAPSED_BY_DEFAULT_STORAGE_KEY, false))
+// kelvo: parche 26, el razonamiento se muestra plegado por defecto
+const $reasoningCollapsedByDefaultPref = atom(storedBoolean(REASONING_COLLAPSED_BY_DEFAULT_STORAGE_KEY, true))
 
 persistStore(
   $reasoningCollapsedByDefaultPref,
   (value, options) => persistBoolean(REASONING_COLLAPSED_BY_DEFAULT_STORAGE_KEY, value, options),
-  false
+  true
 )
 
 export const $reasoningCollapsedByDefault = modeBound(

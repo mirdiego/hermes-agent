@@ -76,7 +76,7 @@ export const MESSAGING_SESSION_SOURCE_IDS = [
   'email',
   'sms',
   'webhook',
-  'api_server',
+  // kelvo: parche 24, las corridas por API (las de la demo) van con las demás sesiones, no en un grupo «API»
   'weixin',
   'wecom',
   'qqbot',

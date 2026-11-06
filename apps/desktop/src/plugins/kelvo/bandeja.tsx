@@ -143,7 +143,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const [aviso, setAviso] = useState('')
 
   const cargar = useCallback(async () => {
-    const r = await pedir({ path: '/solicitudes' })
+    const r = await pedir({ path: '/solicitudes?estudio=greenlab' })
 
     if (!r.ok) {
       setError(r.error || `La plataforma respondió ${r.status}`)
@@ -152,7 +152,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
     }
 
     setError('')
-    const todas = lista(r.datos).filter(esVisible)
+    const todas = lista(r.datos)
     setSolicitudes(todas)
     onCuenta?.(todas.filter(s => texto(s.estado) === 'en_revision').length)
   }, [onCuenta])
@@ -186,6 +186,23 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const actual = solicitudes.find(s => texto(s.codigo) === elegida) ?? null
   const borrador = borradorDe(ficha)
   const puedeFirmar = texto(actual?.estado) === 'en_revision'
+
+  const archivar = async () => {
+    if (!elegida) {
+      return
+    }
+
+    setEnviando(true)
+    const r = await pedir({ method: 'POST', path: `/solicitudes/${elegida}/archivar`, body: { motivo: nota.trim() || 'Prueba terminada' } })
+    setEnviando(false)
+    setAviso(r.ok ? 'Archivada.' : r.error || `Error ${r.status}`)
+
+    if (r.ok) {
+      setNota('')
+      setElegida(null)
+      await cargar()
+    }
+  }
 
   const decidir = async (accion: 'aprobar' | 'devolver') => {
     if (!elegida) {
@@ -291,6 +308,9 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                     {texto(s.cuenta_nombre) || codigo} · {texto(s.creado).slice(0, 10)}
                   </span>
                 </span>
+                {s.prueba === true && (
+                  <span className="shrink-0 rounded-full border border-border px-2 text-[11px] leading-[18px] text-muted-foreground">prueba</span>
+                )}
                 <Pildora estado={texto(s.estado)} />
               </button>
             )
@@ -343,6 +363,11 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                     placeholder={puedeFirmar ? 'Comentario (obligatorio para devolver)' : 'Esta solicitud no espera firma'}
                     value={nota}
                   />
+                  {actual.prueba === true && (
+                    <Button disabled={enviando} onClick={() => void archivar()} size="sm" type="button" variant="outline">
+                      Archivar
+                    </Button>
+                  )}
                   <Button
                     disabled={!puedeFirmar || enviando || nota.trim().length < 3}
                     onClick={() => void decidir('devolver')}
