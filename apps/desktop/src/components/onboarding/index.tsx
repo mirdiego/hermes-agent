@@ -586,6 +586,9 @@ function Header() {
 
 export const FEATURED_ID = 'nous'
 
+// kelvo: parche 23, sin Nous Portal en el asistente de proveedor (servicio alojado de Nous)
+const MOSTRAR_PORTAL: boolean = false
+
 // Stand-in for the Nous row when the OAuth provider list could not be read
 // (it failed or came back empty, which drops the picker onto the key form).
 // Starting sign-in only needs the id; the backend's start reply decides the flow.
@@ -660,8 +663,8 @@ export function Picker({ ctx }: { ctx: OnboardingContext }) {
     return <Status>{t.onboarding.lookingUpProviders}</Status>
   }
 
-  const featured = ordered.find(p => p.id === FEATURED_ID) ?? null
-  const rest = featured ? ordered.filter(p => p.id !== FEATURED_ID) : ordered
+  const featured = MOSTRAR_PORTAL ? (ordered.find(p => p.id === FEATURED_ID) ?? null) : null
+  const rest = ordered.filter(p => p.id !== FEATURED_ID)
   // Collapse the secondary providers behind a disclosure whenever Nous Portal
   // is present to anchor the choice — otherwise show the full list. The
   // Fireworks/OpenRouter key rows always live behind the disclosure, so the
@@ -751,7 +754,7 @@ function KeyFormStep({
   onSelect: (provider: OAuthProvider) => void
   providers: OAuthProvider[]
 }) {
-  const nous = localEndpoint ? null : (providers.find(p => p.id === FEATURED_ID) ?? NOUS_FALLBACK)
+  const nous = !MOSTRAR_PORTAL || localEndpoint ? null : (providers.find(p => p.id === FEATURED_ID) ?? NOUS_FALLBACK)
 
   return (
     <div className="grid gap-3">

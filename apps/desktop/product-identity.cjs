@@ -12,9 +12,11 @@ const variants = {
   // kelvo: marca Kelvo (parche 1 de KELVO-PARCHES.md)
   '': { display: 'Kelvo', kebab: 'kelvo', pascal: 'Kelvo' },
   light: {
-    display: 'Kelvo',
-    kebab: 'kelvo',
-    pascal: 'Kelvo'
+    // kelvo: el nombre que ve macOS es «Kelvo Hermes», para no confundirse con el Kelvo Desktop anterior;
+    // dentro de la app la marca sigue siendo Kelvo (parches 2 y 3)
+    display: 'Kelvo Hermes',
+    kebab: 'kelvo-hermes',
+    pascal: 'KelvoHermes'
   },
   bundled: {
     display: 'Hermes Agent',
