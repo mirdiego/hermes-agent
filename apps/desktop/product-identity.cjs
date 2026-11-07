@@ -12,9 +12,10 @@ const variants = {
   // kelvo: marca Kelvo (parche 1 de KELVO-PARCHES.md)
   '': { display: 'Kelvo', kebab: 'kelvo', pascal: 'Kelvo' },
   light: {
-    // kelvo: el nombre que ve macOS es «Kelvo Hermes», para no confundirse con el Kelvo Desktop anterior;
-    // dentro de la app la marca sigue siendo Kelvo (parches 2 y 3)
-    display: 'Kelvo Hermes',
+    // kelvo: el nombre visible es «Kelvo» (Aplicaciones, ventana, menú y Dock; pedido de Diego del 7-nov). kebab y
+    // pascal siguen en kelvo-hermes: mantienen el appId cl.kelvo.kelvo-hermes, el candado de instancia única y el
+    // AppUserModelID de Windows. userData queda fijo en Kelvo-Hermes (electron/main.ts, parche 20)
+    display: 'Kelvo',
     kebab: 'kelvo-hermes',
     pascal: 'KelvoHermes'
   },
