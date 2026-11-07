@@ -16330,7 +16330,7 @@ ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?:
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''
 
   const permitida =
-    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar|avance))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/clientes(\/[A-Za-z0-9_-]+\/llave)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/servicios(\/[A-Za-z0-9_-]+(\/simulaciones)?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/simulaciones\/[A-Za-z0-9_-]+(\/(ajustar|lanzar))?$/.test(ruta) ||

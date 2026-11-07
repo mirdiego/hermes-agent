@@ -110,7 +110,6 @@ interface ComposerDraftPayload {
 }
 
 export default {
-  defaultEnabled: false, // kelvo: parche 14, sin Bots
   id: ID,
   name: translateNow('common.bots'),
   description:

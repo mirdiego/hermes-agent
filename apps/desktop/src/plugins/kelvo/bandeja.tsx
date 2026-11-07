@@ -87,6 +87,44 @@ export function resumenPaso(m: Registro): string {
   return partes.join(' · ').slice(0, 180)
 }
 
+const ESTADO_AVANCE: Record<string, string> = {
+  sin_corrida: 'esperando a que parta',
+  corriendo: 'trabajando',
+  terminada: 'terminó',
+  fallida: 'falló'
+}
+
+/** Avance en vivo de la corrida de la solicitud (GET /solicitudes/<código>/avance). */
+function PanelAvance({ avance }: { avance: Registro }) {
+  const estado = texto(avance.estado)
+  const desde = Date.parse(texto(avance.desde))
+  const minutos = Number.isFinite(desde) ? Math.max(0, Math.round((Date.now() - desde) / 60000)) : null
+  const herramientas = Array.isArray(avance.herramientas) ? (avance.herramientas as Registro[]) : []
+  const enCursoH = herramientas.find(h => texto(h.estado) === 'en_curso')
+  const pasos = Array.isArray(avance.pasos) ? (avance.pasos as Registro[]).slice(-4) : []
+
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-card px-3 py-2 text-[12px]">
+      <div className="flex items-center gap-2">
+        <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-[#ff4d00]" />
+        <b className="font-medium">Nuestro agente: {ESTADO_AVANCE[estado] ?? estado}</b>
+        {minutos !== null && <span className="text-muted-foreground">· {minutos} min</span>}
+        {enCursoH && <span className="ml-auto truncate font-mono text-[11px] text-muted-foreground">{texto(enCursoH.nombre)}</span>}
+      </div>
+      {pasos.length > 0 && (
+        <ul className="mt-1 space-y-0.5 text-muted-foreground">
+          {pasos.map((p, i) => (
+            <li className="truncate" key={i}>
+              {texto(p.accion)}
+              {texto(p.detalle) ? ` · ${texto(p.detalle)}` : ''}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function titulo(s: Registro): string {
   return texto(s.servicio_nombre ?? s.titulo ?? s.servicio ?? s.codigo) || 'Solicitud'
 }
@@ -155,6 +193,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const [elegida, setElegida] = useState<string | null>(null)
   const [ficha, setFicha] = useState<Registro | null>(null)
   const [hilo, setHilo] = useState<Registro[]>([])
+  const [avance, setAvance] = useState<Registro | null>(null)
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [aviso, setAviso] = useState('')
@@ -185,6 +224,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
     setElegida(codigo)
     setFicha(null)
     setHilo([])
+    setAvance(null)
     setAviso('')
 
     const [f, c] = await Promise.all([
@@ -209,6 +249,9 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
     if (c.ok) {
       setHilo(mensajes(c.datos))
     }
+
+    const av = await pedir({ path: `/solicitudes/${codigo}/avance` })
+    setAvance(av.ok ? (av.datos as Registro) : null)
   }, [])
 
   const filtro = GRUPOS.find(g => g.id === grupo) ?? GRUPOS[0]
@@ -410,6 +453,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                   <b className="text-[15px]">{titulo(actual)}</b>
                   <Pildora estado={texto(actual.estado)} />
                 </div>
+                {enCurso && avance && <PanelAvance avance={avance} />}
                 <div className="flex flex-col gap-2 text-[12.5px]">
                   {hilo.map((m, i) =>
                     esPaso(m) ? (
