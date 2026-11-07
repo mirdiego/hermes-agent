@@ -93,7 +93,8 @@ export function FichaPieza({ pieza, onRetirada }: { pieza: Registro; onRetirada:
   }
 
   const filas: Array<[string, string]> = [
-    ['Archivo', texto(pieza.pieza)],
+    ['Qué es', texto(pieza.que_es)],
+    ['Archivos', Array.isArray(pieza.archivos) ? (pieza.archivos as unknown[]).map(texto).join(', ') : ''],
     ['De qué trabajo sale', texto(pieza.origen) || 'sin indicar'],
     ['Archivo original', texto(pieza.ruta_origen)],
     ['Publicó', texto(pieza.publicado_por)],
