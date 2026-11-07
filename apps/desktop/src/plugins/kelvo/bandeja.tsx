@@ -6,6 +6,7 @@ import { Button, cn, MessageTextContent } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { pedir } from './bandeja-api'
+import { FichaPieza, FilaPieza, useBibliotecaBandeja } from './biblioteca'
 import { DarAcceso, FichaCliente, FilaCliente, useClientes } from './clientes'
 import { FichaServicio, FilaServicio, useServicios } from './servicios'
 
@@ -190,6 +191,8 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const { clientes, error: errorClientes, cargar: cargarClientes } = useClientes()
   const { servicios, error: errorServicios, cargar: cargarServicios } = useServicios()
   const [servicioSlug, setServicioSlug] = useState<string | null>(null)
+  const { piezas, error: errorBiblioteca, cargar: cargarBiblioteca } = useBibliotecaBandeja()
+  const [piezaNombre, setPiezaNombre] = useState<string | null>(null)
   const [elegida, setElegida] = useState<string | null>(null)
   const [ficha, setFicha] = useState<Registro | null>(null)
   const [hilo, setHilo] = useState<Registro[]>([])
@@ -257,6 +260,8 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const filtro = GRUPOS.find(g => g.id === grupo) ?? GRUPOS[0]
   const enClientes = grupo === 'clientes'
   const enServicios = grupo === 'servicios'
+  const enBiblioteca = grupo === 'biblioteca'
+  const piezaActual = piezas.find(p => String(p.pieza) === piezaNombre) ?? null
   const servicioActual = servicios.find(x => String(x.slug) === servicioSlug) ?? null
   const clienteActual = clientes.find(c => String(c.id) === clienteId) ?? null
   const visibles = useMemo(() => solicitudes.filter(s => filtro.filtra(texto(s.estado))), [solicitudes, filtro])
@@ -379,7 +384,34 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
               <span className="flex-1">Servicios</span>
               <span className="font-mono text-[10.5px]">{servicios.length}</span>
             </button>
+            <button
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px]',
+                enBiblioteca ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
+              )}
+              onClick={() => {
+                setGrupo('biblioteca')
+                void cargarBiblioteca()
+              }}
+              type="button"
+            >
+              <span className="flex-1">Biblioteca</span>
+              <span className="font-mono text-[10.5px]">{piezas.length}</span>
+            </button>
           </div>
+          {enBiblioteca && errorBiblioteca && <div className="px-3 py-2 text-xs text-destructive">{errorBiblioteca}</div>}
+          {enBiblioteca && !errorBiblioteca && piezas.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">No hay nada publicado para clientes.</div>
+          )}
+          {enBiblioteca &&
+            piezas.map(p => (
+              <FilaPieza
+                elegida={String(p.pieza) === piezaNombre}
+                key={String(p.pieza)}
+                onElegir={() => setPiezaNombre(String(p.pieza))}
+                pieza={p}
+              />
+            ))}
           {enServicios && errorServicios && <div className="px-3 py-2 text-xs text-destructive">{errorServicios}</div>}
           {enServicios &&
             servicios.map(x => (
@@ -400,11 +432,11 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                 onElegir={() => setClienteId(String(c.id))}
               />
             ))}
-          {!enClientes && !enServicios && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
-          {!enClientes && !enServicios && !error && visibles.length === 0 && (
+          {!enClientes && !enServicios && !enBiblioteca && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
+          {!enClientes && !enServicios && !enBiblioteca && !error && visibles.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No hay solicitudes en este grupo.</div>
           )}
-          {!enClientes && !enServicios && visibles.map(s => {
+          {!enClientes && !enServicios && !enBiblioteca && visibles.map(s => {
             const codigo = texto(s.codigo)
 
             return (
@@ -432,7 +464,20 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
           })}
         </div>
         <div className="flex min-h-0 flex-col">
-          {enServicios ? (
+          {enBiblioteca ? (
+            piezaActual ? (
+              <FichaPieza
+                key={String(piezaActual.pieza)}
+                onRetirada={() => {
+                  setPiezaNombre(null)
+                  void cargarBiblioteca()
+                }}
+                pieza={piezaActual}
+              />
+            ) : (
+              <div className="m-auto text-sm text-muted-foreground">Elige una pieza para ver su ficha.</div>
+            )
+          ) : enServicios ? (
             servicioActual ? (
               <FichaServicio key={String(servicioActual.slug)} onSolicitudCreada={() => void cargar()} servicio={servicioActual} />
             ) : (

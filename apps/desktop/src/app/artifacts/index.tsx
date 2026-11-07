@@ -49,6 +49,8 @@ import {
   type ArtifactRecord,
   loadArtifactsForSessions
 } from './artifact-utils'
+// kelvo: parche 36
+import { BotonBiblioteca } from './kelvo-biblioteca'
 // kelvo: parche 32
 import { agruparEntregables, type ArtifactConTrabajo } from './kelvo-entregables'
 
@@ -627,6 +629,7 @@ function ArtifactImageCard({ artifact, failedImage, onImageError, onOpenChat, on
             <FolderOpen className="size-3" />
             {a.chat}
           </Button>
+          <BotonBiblioteca origen={artifact.sessionTitle} ruta={artifact.value} titulo={artifact.label} />
         </div>
         <ArchivosDeTrabajo artifact={artifact} onOpen={onOpen} />
       </div>
@@ -694,6 +697,7 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
       </span>
       </ArtifactCellAction>
       <div className="px-2.5 pb-1">
+        {!isLink && <BotonBiblioteca origen={artifact.sessionTitle} ruta={artifact.value} titulo={artifact.label} />}
         <ArchivosDeTrabajo artifact={artifact} onOpen={item => void ctx.onOpen(item)} />
       </div>
     </div>

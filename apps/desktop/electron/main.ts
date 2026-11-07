@@ -16260,6 +16260,76 @@ ipcMain.handle('kelvo:cliente', async (_event, pedido: { input?: string; sesion?
   }
 })
 
+// kelvo: parche 36, biblioteca de servicios. La app publica y retira piezas en la carpeta que el agente de servicios
+// ve en sólo lectura, por el servicio de la caja (infra/gpu-01/biblioteca) con la llave del Llavero
+// (servicio kelvo-biblioteca). El renderer manda sólo la acción y la ruta; nunca ve la llave.
+const KELVO_BIBLIOTECA_BASE = process.env.KELVO_BIBLIOTECA_BASE || 'https://gpu-01.tail3ecca3.ts.net/biblioteca'
+
+ipcMain.handle(
+  'kelvo:biblioteca',
+  async (
+    _event,
+    pedido: { accion?: string; ruta?: string; titulo?: string; origen?: string; pieza?: string; motivo?: string }
+  ) => {
+    const accion = pedido?.accion
+    const corto = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : '')
+    let ruta = ''
+    let body: Record<string, string> | undefined
+
+    if (accion === 'piezas') {
+      ruta = '/piezas'
+    } else if (accion === 'publicar' && corto(pedido.ruta, 2000)) {
+      ruta = '/publicar'
+      body = {
+        ruta: corto(pedido.ruta, 2000),
+        titulo: corto(pedido.titulo, 200),
+        origen: corto(pedido.origen, 300),
+        publicado_por: 'Kelvo Hermes'
+      }
+    } else if (accion === 'retirar' && corto(pedido.pieza, 160)) {
+      ruta = '/retirar'
+      body = { pieza: corto(pedido.pieza, 160), motivo: corto(pedido.motivo, 500), retirado_por: 'Kelvo Hermes' }
+    } else {
+      return { ok: false, status: 400, error: 'acción no permitida' }
+    }
+
+    let llave = ''
+
+    try {
+      llave = execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-biblioteca', '-a', 'diego', '-w'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 5000
+      }).trim()
+    } catch {
+      llave = ''
+    }
+
+    if (!llave) {
+      return { ok: false, status: 401, error: 'falta la llave kelvo-biblioteca en el Llavero' }
+    }
+
+    try {
+      const respuesta = await fetch(`${KELVO_BIBLIOTECA_BASE}${ruta}`, {
+        method: body ? 'POST' : 'GET',
+        headers: { authorization: `Bearer ${llave}`, 'content-type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(20000)
+      })
+      const datos = (await respuesta.json().catch(() => null)) as { error?: unknown } | null
+
+      return {
+        ok: respuesta.ok,
+        status: respuesta.status,
+        datos,
+        error: respuesta.ok ? undefined : typeof datos?.error === 'string' ? datos.error : `respondió ${respuesta.status}`
+      }
+    } catch (error) {
+      return { ok: false, status: 0, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+)
+
 ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?: string; body?: unknown }) => {
   const method = pedido?.method === 'POST' ? 'POST' : 'GET'
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''

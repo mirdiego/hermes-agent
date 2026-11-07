@@ -1,16 +1,18 @@
 // Puente de la Bandeja con la API del estudio y con el cliente simulado: el proceso principal de Electron (parches 18 y
-// 30, window.kelvoEstudio) hace las llamadas con las llaves del Llavero; aquí sólo viajan el pedido y la respuesta.
+// 30 y 36, window.kelvoEstudio) hace las llamadas con las llaves del Llavero; aquí sólo viajan el pedido y la respuesta.
 
 export type Pedido = { method?: 'GET' | 'POST'; path: string; body?: unknown }
 export type Respuesta = { ok: boolean; status: number; datos?: unknown; error?: string }
 export type PedidoCliente = { input: string; sesion: string }
 export type RespuestaCliente = { ok: boolean; status?: number | string; run_id?: string; output?: string; error?: string }
+export type PedidoBiblioteca = { accion: 'piezas' | 'publicar' | 'retirar'; ruta?: string; titulo?: string; origen?: string; pieza?: string; motivo?: string }
 
 declare global {
   interface Window {
     kelvoEstudio?: {
       pedir: (pedido: Pedido) => Promise<Respuesta>
       cliente?: (pedido: PedidoCliente) => Promise<RespuestaCliente>
+      biblioteca?: (pedido: PedidoBiblioteca) => Promise<Respuesta>
     }
   }
 }
@@ -30,4 +32,13 @@ export async function correrCliente(pedido: PedidoCliente): Promise<RespuestaCli
   }
 
   return window.kelvoEstudio.cliente(pedido)
+}
+
+/** La biblioteca de servicios de la caja (parche 36): listar, publicar y retirar piezas. */
+export async function biblioteca(pedido: PedidoBiblioteca): Promise<Respuesta> {
+  if (!window.kelvoEstudio?.biblioteca) {
+    return { ok: false, status: 0, error: 'La app no trae el puente de la biblioteca' }
+  }
+
+  return window.kelvoEstudio.biblioteca(pedido)
 }

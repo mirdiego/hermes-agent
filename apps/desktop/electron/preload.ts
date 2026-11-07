@@ -33,7 +33,10 @@ import { unwrapExpectedNotFound } from './api-expected-404'
 contextBridge.exposeInMainWorld('kelvoEstudio', {
   pedir: (pedido: { method?: string; path?: string; body?: unknown }) => ipcRenderer.invoke('kelvo:estudio', pedido),
   // kelvo: parche 30
-  cliente: (pedido: { input: string; sesion: string }) => ipcRenderer.invoke('kelvo:cliente', pedido)
+  cliente: (pedido: { input: string; sesion: string }) => ipcRenderer.invoke('kelvo:cliente', pedido),
+  // kelvo: parche 36
+  biblioteca: (pedido: { accion: string; ruta?: string; titulo?: string; origen?: string; pieza?: string; motivo?: string }) =>
+    ipcRenderer.invoke('kelvo:biblioteca', pedido)
 })
 
 contextBridge.exposeInMainWorld('hermesDesktop', {
