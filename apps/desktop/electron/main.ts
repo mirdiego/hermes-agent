@@ -16284,11 +16284,11 @@ ipcMain.handle(
         ruta: corto(pedido.ruta, 2000),
         titulo: corto(pedido.titulo, 200),
         origen: corto(pedido.origen, 300),
-        publicado_por: 'Kelvo Hermes'
+        publicado_por: 'Kelvo'
       }
     } else if (accion === 'retirar' && corto(pedido.pieza, 160)) {
       ruta = '/retirar'
-      body = { pieza: corto(pedido.pieza, 160), motivo: corto(pedido.motivo, 500), retirado_por: 'Kelvo Hermes' }
+      body = { pieza: corto(pedido.pieza, 160), motivo: corto(pedido.motivo, 500), retirado_por: 'Kelvo' }
     } else {
       return { ok: false, status: 400, error: 'acción no permitida' }
     }

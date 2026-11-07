@@ -129,7 +129,7 @@ export function BotonBiblioteca({ origen, ruta, titulo }: { origen?: string; rut
     setAviso('')
 
     const r = publicada
-      ? await retirarPieza(publicada.pieza, 'retirada desde Kelvo Hermes')
+      ? await retirarPieza(publicada.pieza, 'retirada desde Kelvo')
       : await publicarPieza(ruta, titulo || ruta.split('/').pop() || ruta, origen || '')
 
     setEnviando(false)
