@@ -16330,12 +16330,68 @@ ipcMain.handle(
   }
 )
 
+// kelvo: parche 37, los archivos del informe de una solicitud (PDF y Word). El proceso principal los baja con la
+// llave del estudio y los abre o los deja en Descargas; la pantalla sólo manda el código, el id y el nombre.
+ipcMain.handle(
+  'kelvo:estudio-archivo',
+  async (_event, pedido: { codigo?: string; id?: string; nombre?: string; accion?: string }) => {
+    const codigo = typeof pedido?.codigo === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(pedido.codigo) ? pedido.codigo : ''
+    const id = typeof pedido?.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(pedido.id) ? pedido.id : ''
+    const accion = pedido?.accion === 'descargar' ? 'descargar' : 'abrir'
+
+    if (!codigo || !id) {
+      return { ok: false, error: 'falta el código o el archivo' }
+    }
+
+    const llave = kelvoEstudioLlave()
+
+    if (!llave) {
+      return { ok: false, error: 'falta la llave kelvo-estudio en el Llavero' }
+    }
+
+    try {
+      const respuesta = await fetch(
+        `${KELVO_ESTUDIO_BASE}/solicitudes/${codigo}/archivo?id=${encodeURIComponent(id)}`,
+        { headers: { authorization: `Bearer ${llave}` }, signal: AbortSignal.timeout(60000) }
+      )
+
+      if (!respuesta.ok) {
+        return { ok: false, error: `la plataforma respondió ${respuesta.status}` }
+      }
+
+      const sugerido = typeof pedido?.nombre === 'string' ? pedido.nombre : `${codigo}-${id}`
+      const nombre = path.basename(sugerido).replace(/[^\p{L}\p{N} ._()-]/gu, '_').slice(0, 120) || `${codigo}-${id}`
+      const carpeta =
+        accion === 'descargar'
+          ? app.getPath('downloads')
+          : fs.mkdtempSync(path.join(os.tmpdir(), `kelvo-${codigo}-`))
+      const destino = path.join(carpeta, nombre)
+
+      fs.writeFileSync(destino, Buffer.from(await respuesta.arrayBuffer()))
+
+      if (accion === 'descargar') {
+        shell.showItemInFolder(destino)
+      } else {
+        const error = await shell.openPath(destino)
+
+        if (error) {
+          return { ok: false, error }
+        }
+      }
+
+      return { ok: true, nombre }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+)
+
 ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?: string; body?: unknown }) => {
   const method = pedido?.method === 'POST' ? 'POST' : 'GET'
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''
 
   const permitida =
-    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar|avance))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar|avance|archivos))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/clientes(\/[A-Za-z0-9_-]+\/llave)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/servicios(\/[A-Za-z0-9_-]+(\/simulaciones)?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/simulaciones\/[A-Za-z0-9_-]+(\/(ajustar|lanzar))?$/.test(ruta) ||

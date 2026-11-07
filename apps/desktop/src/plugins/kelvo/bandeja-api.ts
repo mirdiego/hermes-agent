@@ -5,6 +5,7 @@ export type Pedido = { method?: 'GET' | 'POST'; path: string; body?: unknown }
 export type Respuesta = { ok: boolean; status: number; datos?: unknown; error?: string }
 export type PedidoCliente = { input: string; sesion: string }
 export type RespuestaCliente = { ok: boolean; status?: number | string; run_id?: string; output?: string; error?: string }
+export type PedidoArchivo = { codigo: string; id: string; nombre?: string; accion: 'abrir' | 'descargar' }
 export type PedidoBiblioteca = { accion: 'piezas' | 'publicar' | 'retirar'; ruta?: string; titulo?: string; origen?: string; pieza?: string; motivo?: string }
 
 declare global {
@@ -13,6 +14,7 @@ declare global {
       pedir: (pedido: Pedido) => Promise<Respuesta>
       cliente?: (pedido: PedidoCliente) => Promise<RespuestaCliente>
       biblioteca?: (pedido: PedidoBiblioteca) => Promise<Respuesta>
+      archivo?: (pedido: PedidoArchivo) => Promise<{ ok: boolean; nombre?: string; error?: string }>
     }
   }
 }
@@ -41,4 +43,13 @@ export async function biblioteca(pedido: PedidoBiblioteca): Promise<Respuesta> {
   }
 
   return window.kelvoEstudio.biblioteca(pedido)
+}
+
+/** Abre o descarga un archivo del informe de una solicitud (parche 37); lo baja el proceso principal. */
+export async function archivoSolicitud(pedido: PedidoArchivo): Promise<{ ok: boolean; nombre?: string; error?: string }> {
+  if (!window.kelvoEstudio?.archivo) {
+    return { ok: false, error: 'La app no trae el puente de archivos' }
+  }
+
+  return window.kelvoEstudio.archivo(pedido)
 }

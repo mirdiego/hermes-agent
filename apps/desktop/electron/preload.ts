@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('kelvoEstudio', {
   pedir: (pedido: { method?: string; path?: string; body?: unknown }) => ipcRenderer.invoke('kelvo:estudio', pedido),
   // kelvo: parche 30
   cliente: (pedido: { input: string; sesion: string }) => ipcRenderer.invoke('kelvo:cliente', pedido),
+  // kelvo: parche 37
+  archivo: (pedido: { codigo: string; id: string; nombre?: string; accion: 'abrir' | 'descargar' }) =>
+    ipcRenderer.invoke('kelvo:estudio-archivo', pedido),
   // kelvo: parche 36
   biblioteca: (pedido: { accion: string; ruta?: string; titulo?: string; origen?: string; pieza?: string; motivo?: string }) =>
     ipcRenderer.invoke('kelvo:biblioteca', pedido)
