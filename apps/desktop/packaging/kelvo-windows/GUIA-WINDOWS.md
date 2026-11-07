@@ -1,8 +1,8 @@
-# Probar Kelvo Hermes en Windows (guía para Alejandro)
+# Probar Kelvo en Windows (guía para Alejandro)
 
-**No instales Hermes ni nada de Nous Research. La app es Kelvo Hermes y se descarga sólo desde gpu-01, dentro de Tailscale. Si ya instalaste Hermes de Nous, no lo uses.** Déjalo de lado sin borrar nada, no lo abras y no le reportes nada a Nous; Diego lo revisa después.
+**No instales Hermes ni nada de Nous Research. La app se llama Kelvo y se descarga sólo desde gpu-01, dentro de Tailscale. Si ya instalaste Hermes de Nous, no lo uses.** Déjalo de lado sin borrar nada, no lo abras y no le reportes nada a Nous; Diego lo revisa después.
 
-Tu Claude sigue esta guía contigo, paso a paso. Vas a probar la app con la que Diego hace la demo de Greenlab del lunes 9-nov: Hermes Desktop con la marca Kelvo, conectada al modelo de gpu-01. En Windows se llama «Kelvo Hermes»; adentro dice Kelvo. Entras al mismo perfil de la demo, greenlab, y tus conversaciones quedan junto a las de Diego. Por eso **no pauses, borres ni ejecutes las rutinas de Tareas**, y no borres conversaciones que no sean tuyas. Critica todo: lo que sobra, lo que confunde y lo que falla.
+Tu Claude sigue esta guía contigo, paso a paso. Vas a probar la app con la que Diego hace la demo de Greenlab del lunes 9-nov: Hermes Desktop con la marca Kelvo, conectada al modelo de gpu-01. En Windows se llama «Kelvo». Si ya tenías instalada la versión que se llamaba «Kelvo Hermes», el comando del paso 3 la reemplaza: quedan los mismos datos y el mismo token. Entras al mismo perfil de la demo, greenlab, y tus conversaciones quedan junto a las de Diego. Por eso **no pauses, borres ni ejecutes las rutinas de Tareas**, y no borres conversaciones que no sean tuyas. Critica todo: lo que sobra, lo que confunde y lo que falla.
 
 Necesitas Windows 10 u 11 de 64 bits, Tailscale y tu usuario en la plataforma de Kelvo. No hace falta ser administrador ni compilar nada. Son cuatro pasos y toman unos 10 minutos.
 
@@ -23,15 +23,15 @@ Diego te manda el token por un canal privado; no va en esta guía ni en el Drive
 Abre PowerShell (tecla Windows, escribe «PowerShell», Enter) y pega esta línea:
 
 ```powershell
-$f="$env:TEMP\instalar-kelvo-hermes.ps1"; iwr -UseBasicParsing https://gpu-01.tail3ecca3.ts.net/desktop/instalar-kelvo-hermes.ps1 -OutFile $f; powershell -ExecutionPolicy Bypass -File $f
+$f="$env:TEMP\instalar-kelvo.ps1"; iwr -UseBasicParsing https://gpu-01.tail3ecca3.ts.net/desktop/instalar-kelvo.ps1 -OutFile $f; powershell -ExecutionPolicy Bypass -File $f
 ```
 
 El script hace todo lo demás, en cinco pasos que va mostrando:
 1. toma el token del portapapeles, sin mostrarlo;
 2. baja el instalador desde gpu-01, unos 140 MB;
 3. revisa que la descarga esté entera (sha256);
-4. instala la app sólo para tu usuario, sin pedir administrador, en `%LOCALAPPDATA%\Programs\Kelvo Hermes`, con accesos en el menú Inicio y el escritorio;
-5. guarda el token en el Administrador de credenciales de Windows (Credenciales web, `kelvo-gateway`), vacía el portapapeles y abre Kelvo Hermes.
+4. instala la app sólo para tu usuario, sin pedir administrador, en `%LOCALAPPDATA%\Programs\Kelvo`, con accesos en el menú Inicio y el escritorio;
+5. guarda el token en el Administrador de credenciales de Windows (Credenciales web, `kelvo-gateway`), vacía el portapapeles y abre Kelvo.
 
 Como el instalador se baja con PowerShell, Windows no muestra el aviso de SmartScreen.
 
@@ -70,7 +70,7 @@ La Bandeja de solicitudes habla con la plataforma con tu propia llave `kv_`.
 
 Cada problema y cada crítica va como un pendiente en la plataforma, uno por cosa. Tu Claude lo crea con el MCP de Kelvo:
 
-- `crear_pendiente` con **«Kelvo Hermes»** en el título, en una línea. Por ejemplo: «Kelvo Hermes: la Bandeja no muestra…», «Kelvo Hermes (Windows): sobra el botón…»;
+- `crear_pendiente` con **«Kelvo Hermes»** en el título, en una línea (así los encuentra Diego, aunque la app ahora se llame Kelvo). Por ejemplo: «Kelvo Hermes: la Bandeja no muestra…», «Kelvo Hermes (Windows): sobra el botón…»;
 - dueño Diego Mir y trabajo `rediseno-plataforma-y-desktop`;
 - en el detalle: qué hiciste, qué esperabas y qué pasó, más una captura si sirve.
 
@@ -89,8 +89,8 @@ Si ves otra diferencia con lo que muestra Diego, repórtala como pendiente con �
 
 ## Si el comando no sirve: a mano
 
-En https://gpu-01.tail3ecca3.ts.net/desktop/ están `Kelvo-Hermes-socios-win-x64.exe`, su `.sha256` y `llavero-socio.ps1`. Abre el .exe; como viene del navegador, SmartScreen avisa «Windows protegió su PC»: haz clic en Más información y luego en Ejecutar de todas formas. Después copia el token y corre `powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\llavero-socio.ps1"`.
+En https://gpu-01.tail3ecca3.ts.net/desktop/ están `Kelvo-socios-win-x64.exe`, su `.sha256` y `llavero-socio.ps1`. Abre el .exe; como viene del navegador, SmartScreen avisa «Windows protegió su PC»: haz clic en Más información y luego en Ejecutar de todas formas. Después copia el token y corre `powershell -ExecutionPolicy Bypass -File "$env:USERPROFILE\Downloads\llavero-socio.ps1"`.
 
 ## Desinstalar
 
-Configuración › Aplicaciones › Kelvo Hermes › Desinstalar. A propósito quedan la carpeta de datos `%APPDATA%\Kelvo-Hermes` y el token en el Administrador de credenciales, para que una reinstalación abra igual. Si quieres borrarlos, hazlo a mano.
+Configuración › Aplicaciones › Kelvo › Desinstalar. A propósito quedan la carpeta de datos `%APPDATA%\Kelvo-Hermes` y el token en el Administrador de credenciales, para que una reinstalación abra igual. Si quieres borrarlos, hazlo a mano.

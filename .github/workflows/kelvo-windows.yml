@@ -1,9 +1,9 @@
-name: Kelvo Hermes para Windows
+name: Kelvo para Windows
 
-# kelvo: parche W1. Arma el instalador NSIS x64 sin firmar de «Kelvo Hermes» (variante light, sólo remota) para los
+# kelvo: parches W1 y W3. Arma el instalador NSIS x64 sin firmar de «Kelvo» (variante light, sólo remota) para los
 # socios con Windows. Hermes Desktop sólo empaqueta en el mismo sistema operativo y su destino de Windows es MSIX
 # (exige firma), así que aquí se arma la carpeta --dir en un runner Windows y se envuelve con
-# apps/desktop/packaging/kelvo-windows/kelvo-hermes.nsi. El artefacto trae el .exe, su .sha256 y llavero-socio.ps1.
+# apps/desktop/packaging/kelvo-windows/kelvo.nsi. El artefacto trae el .exe, su .sha256 y llavero-socio.ps1.
 #
 # Sólo escucha la rama de Windows de Kelvo, para no mover el resto de la CI del fork.
 
@@ -27,7 +27,7 @@ jobs:
     env:
       HERMES_DESKTOP_VARIANT: light
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-      SALIDA: Kelvo-Hermes-socios-win-x64.exe
+      SALIDA: Kelvo-socios-win-x64.exe
     steps:
       - name: Excluir las carpetas de trabajo de Defender
         shell: powershell
@@ -69,13 +69,13 @@ jobs:
         run: |
           $dir = Get-ChildItem -LiteralPath release -Directory | Where-Object { $_.Name -like 'win*unpacked' } | Select-Object -First 1
           if (-not $dir) { Get-ChildItem -Recurse release -Depth 2 | Select-Object FullName; throw 'no hay release/win*-unpacked' }
-          if (-not (Test-Path -LiteralPath (Join-Path $dir.FullName 'Kelvo Hermes.exe'))) {
-            Get-ChildItem -LiteralPath $dir.FullName | Select-Object Name; throw 'falta Kelvo Hermes.exe'
+          if (-not (Test-Path -LiteralPath (Join-Path $dir.FullName 'Kelvo.exe'))) {
+            Get-ChildItem -LiteralPath $dir.FullName | Select-Object Name; throw 'falta Kelvo.exe'
           }
-          $info = (Get-Item -LiteralPath (Join-Path $dir.FullName 'Kelvo Hermes.exe')).VersionInfo
+          $info = (Get-Item -LiteralPath (Join-Path $dir.FullName 'Kelvo.exe')).VersionInfo
           "CompanyName=$($info.CompanyName) ProductName=$($info.ProductName) FileDescription=$($info.FileDescription) LegalCopyright=$($info.LegalCopyright)"
-          if ("$($info.CompanyName) $($info.ProductName) $($info.FileDescription) $($info.LegalCopyright)" -match 'Nous|Hermes Agent') { throw 'el .exe todavía dice Nous' }
-          # La instalación queda en %LOCALAPPDATA%\Programs\Kelvo Hermes\ (unos 70 caracteres con un usuario largo).
+          if ("$($info.CompanyName) $($info.ProductName) $($info.FileDescription) $($info.LegalCopyright)" -match 'Nous|Hermes') { throw 'el .exe todavía dice Nous o Hermes' }
+          # La instalación queda en %LOCALAPPDATA%\Programs\Kelvo\ (unos 60 caracteres con un usuario largo).
           $base = $dir.FullName.Length + 1
           $larga = Get-ChildItem -LiteralPath $dir.FullName -Recurse -File | ForEach-Object { $_.FullName.Substring($base) } |
             Sort-Object Length -Descending | Select-Object -First 1
@@ -91,9 +91,11 @@ jobs:
           if (-not (Test-Path $makensis)) { choco install nsis -y --no-progress | Out-Null }
           $version = '0.23.0'  # versión de Hermes Desktop sobre la que va la rama kelvo/0.23.0
           New-Item -ItemType Directory -Force salida-kelvo | Out-Null
-          & $makensis /V2 "/DORIGEN=$env:ORIGEN" "/DICONO=$PWD\assets\icon.ico" "/DSALIDA=$PWD\salida-kelvo\$env:SALIDA" "/DVERSION=$version" packaging\kelvo-windows\kelvo-hermes.nsi
+          & $makensis /V2 "/DORIGEN=$env:ORIGEN" "/DICONO=$PWD\assets\icon.ico" "/DSALIDA=$PWD\salida-kelvo\$env:SALIDA" "/DVERSION=$version" packaging\kelvo-windows\kelvo.nsi
           if ($LASTEXITCODE -ne 0) { throw "makensis salió con $LASTEXITCODE" }
-          Copy-Item packaging\kelvo-windows\llavero-socio.ps1, packaging\kelvo-windows\instalar-kelvo-hermes.ps1 salida-kelvo\
+          Copy-Item packaging\kelvo-windows\llavero-socio.ps1, packaging\kelvo-windows\instalar-kelvo.ps1 salida-kelvo\
+          # El comando que Alejandro ya tiene baja instalar-kelvo-hermes.ps1: se publica la misma copia con ese nombre.
+          Copy-Item packaging\kelvo-windows\instalar-kelvo.ps1 salida-kelvo\instalar-kelvo-hermes.ps1
           $hash = (Get-FileHash -Algorithm SHA256 "salida-kelvo\$env:SALIDA").Hash.ToLower()
           # Mismo formato que `shasum -a 256`, con fin de línea LF, para comprobarlo igual en Windows y en el Mac.
           [IO.File]::WriteAllText("$PWD\salida-kelvo\$env:SALIDA.sha256", "$hash  $env:SALIDA`n")
@@ -106,24 +108,24 @@ jobs:
         run: |
           $p = Start-Process -FilePath "salida-kelvo\$env:SALIDA" -ArgumentList '/S' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "el instalador salió con $($p.ExitCode)" }
-          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo Hermes'
-          foreach ($f in @('Kelvo Hermes.exe', 'Desinstalar Kelvo Hermes.exe', 'resources\app.asar')) {
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo'
+          foreach ($f in @('Kelvo.exe', 'Desinstalar Kelvo.exe', 'resources\app.asar')) {
             if (-not (Test-Path -LiteralPath (Join-Path $dir $f))) { throw "falta $f después de instalar" }
           }
-          if (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('Programs')) 'Kelvo Hermes.lnk'))) { throw 'falta el acceso del menú Inicio' }
-          $u = Start-Process -FilePath (Join-Path $dir 'Desinstalar Kelvo Hermes.exe') -ArgumentList '/S', "_?=$dir" -Wait -PassThru
+          if (-not (Test-Path -LiteralPath (Join-Path ([Environment]::GetFolderPath('Programs')) 'Kelvo.lnk'))) { throw 'falta el acceso del menú Inicio' }
+          $u = Start-Process -FilePath (Join-Path $dir 'Desinstalar Kelvo.exe') -ArgumentList '/S', "_?=$dir" -Wait -PassThru
           if ($u.ExitCode -ne 0) { throw "el desinstalador salió con $($u.ExitCode)" }
-          if (Test-Path -LiteralPath (Join-Path $dir 'Kelvo Hermes.exe')) { throw 'la desinstalación dejó el .exe' }
+          if (Test-Path -LiteralPath (Join-Path $dir 'Kelvo.exe')) { throw 'la desinstalación dejó el .exe' }
           'instalar y desinstalar: bien'
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: kelvo-hermes-win-x64
+          name: kelvo-win-x64
           path: apps/desktop/salida-kelvo/
           retention-days: 14
           if-no-files-found: error
 
-      # Lo que hace Alejandro, de verdad: copia un token (aquí falso) y corre instalar-kelvo-hermes.ps1, que baja el
+      # Lo que hace Alejandro, de verdad: copia un token (aquí falso) y corre instalar-kelvo.ps1, que baja el
       # instalador (aquí de un servidor local en vez de gpu-01), revisa el sha256, instala, guarda el token y abre la app.
       # Sin tailnet la app no llega a la caja; se comprueba en desktop.log que tomó el token del Administrador de
       # credenciales y apunta a gpu-01, y que sin credencial no lo hace.
@@ -148,13 +150,6 @@ jobs:
           if ($LASTEXITCODE -eq 0) { throw 'llavero-socio.ps1 aceptó un portapapeles sin token' }
           'portapapeles sin token: rechazado, bien'
 
-          Set-Clipboard -Value $sucio
-          powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\instalar-kelvo-hermes.ps1 -Base http://127.0.0.1:8765
-          if ($LASTEXITCODE -ne 0) { throw "instalar-kelvo-hermes.ps1 salió con $LASTEXITCODE" }
-          Stop-Process -Id $servidor.Id -Force
-          if (Get-Clipboard -Raw) { throw 'el portapapeles no quedó vacío' }
-          'portapapeles vacío: bien'
-
           function Ultima-Kelvo {
             $logs = foreach ($raiz in @($env:USERPROFILE, $env:LOCALAPPDATA, $env:APPDATA)) {
               Get-ChildItem -LiteralPath $raiz -Recurse -File -Filter desktop.log -ErrorAction SilentlyContinue
@@ -162,10 +157,53 @@ jobs:
             $lineas = @($logs | Select-String -SimpleMatch '[kelvo] gateway remoto:' -ErrorAction SilentlyContinue)
             if ($lineas.Count) { "$($lineas[-1].Path): $($lineas[-1].Line)" } else { '' }
           }
+          function Huella($t) { -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($t))[0..3] | ForEach-Object { $_.ToString('x2') }) }
+
+          # Actualización desde «Kelvo Hermes» (parche W3), como en el PC de Alejandro: la versión anterior instalada,
+          # con sus accesos, su entrada en Aplicaciones, datos en %APPDATA%\Kelvo-Hermes y un token guardado. Se corre el
+          # comando de la guía que ya tiene (instalar-kelvo-hermes.ps1) sin copiar token: tiene que quedar sólo «Kelvo»,
+          # con los mismos datos y el mismo token.
+          $viejo = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo Hermes'
+          New-Item -ItemType Directory -Force $viejo | Out-Null
+          Copy-Item "$env:SystemRoot\System32\where.exe" (Join-Path $viejo 'Kelvo Hermes.exe')
+          Copy-Item "$env:SystemRoot\System32\where.exe" (Join-Path $viejo 'Desinstalar Kelvo Hermes.exe')
+          $wsh = New-Object -ComObject WScript.Shell
+          $accesosViejos = @((Join-Path ([Environment]::GetFolderPath('Programs')) 'Kelvo Hermes.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Kelvo Hermes.lnk'))
+          foreach ($l in $accesosViejos) { $a = $wsh.CreateShortcut($l); $a.TargetPath = Join-Path $viejo 'Kelvo Hermes.exe'; $a.Save() }
+          $clave = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\KelvoHermes'
+          New-Item -Force $clave | Out-Null
+          Set-ItemProperty $clave DisplayName 'Kelvo Hermes'
+          New-Item -ItemType Directory -Force "$env:APPDATA\Kelvo-Hermes" | Out-Null
+          Set-Content "$env:APPDATA\Kelvo-Hermes\marca-actualizacion.txt" 'datos de Kelvo Hermes'
+          $anterior = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+          powershell.exe -NoProfile -Command "[void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]; (New-Object Windows.Security.Credentials.PasswordVault).Add((New-Object Windows.Security.Credentials.PasswordCredential('kelvo-gateway', 'diego', '$anterior')))"
+          Set-Clipboard -Value 'nada copiado'
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\instalar-kelvo-hermes.ps1 -Base http://127.0.0.1:8765
+          if ($LASTEXITCODE -ne 0) { throw "instalar-kelvo-hermes.ps1 (actualización) salió con $LASTEXITCODE" }
+          if (Test-Path -LiteralPath $viejo) { throw 'quedó la carpeta de Kelvo Hermes' }
+          foreach ($l in $accesosViejos) { if (Test-Path -LiteralPath $l) { throw "quedó el acceso $l" } }
+          foreach ($l in @((Join-Path ([Environment]::GetFolderPath('Programs')) 'Kelvo.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Kelvo.lnk'))) { if (-not (Test-Path -LiteralPath $l)) { throw "falta el acceso $l" } }
+          if ((Get-ItemProperty $clave).DisplayName -ne 'Kelvo') { throw 'Aplicaciones no dice «Kelvo»' }
+          if (-not (Test-Path "$env:APPDATA\Kelvo-Hermes\marca-actualizacion.txt")) { throw 'se perdieron los datos de %APPDATA%\Kelvo-Hermes' }
+          Start-Sleep -Seconds 40
+          if (@(Get-Process -Name 'Kelvo' -ErrorAction SilentlyContinue).Count -eq 0) { throw 'la app actualizada no arrancó' }
+          $act = Ultima-Kelvo
+          "actualización -> $act"
+          if ($act -notmatch "64 caracteres, huella $(Huella $anterior)\)") { throw 'la actualización no siguió usando el token guardado' }
+          'actualización desde Kelvo Hermes (carpeta, accesos, Aplicaciones, datos y token): bien'
+          Get-Process -Name 'Kelvo' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Start-Sleep -Seconds 3
+
+          Set-Clipboard -Value $sucio
+          powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\instalar-kelvo.ps1 -Base http://127.0.0.1:8765
+          if ($LASTEXITCODE -ne 0) { throw "instalar-kelvo.ps1 salió con $LASTEXITCODE" }
+          Stop-Process -Id $servidor.Id -Force
+          if (Get-Clipboard -Raw) { throw 'el portapapeles no quedó vacío' }
+          'portapapeles vacío: bien'
 
           Start-Sleep -Seconds 40
-          $vivos = @(Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue)
-          "procesos de Kelvo Hermes: $($vivos.Count)"
+          $vivos = @(Get-Process -Name 'Kelvo' -ErrorAction SilentlyContinue)
+          "procesos de Kelvo: $($vivos.Count)"
           if ($vivos.Count -eq 0) { throw 'la app no arrancó' }
           $con = Ultima-Kelvo
           "con credencial -> $con"
@@ -177,7 +215,8 @@ jobs:
           "acceso del menú Inicio -> $($acceso[-1].Line)"
           if ($acceso.Count -eq 0 -or $acceso[-1].Line -notmatch 'AppUserModelID cl\.kelvo\.kelvo-hermes') { throw 'el acceso del menú Inicio no quedó con el AppUserModelID de la app (sin notificaciones)' }
 
-          # El comando de rescate que se le mandó a Alejandro el 6-nov (token copiado de nuevo, sin reinstalar), tal cual.
+          # El comando de rescate (token copiado de nuevo, sin reinstalar), tal cual se le manda a Alejandro; sirve con
+          # «Kelvo» y con «Kelvo Hermes» instalada.
           $falso2 = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
           $huella2 = -join ([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($falso2))[0..3] | ForEach-Object { $_.ToString('x2') })
           Set-Clipboard -Value ("Token: " + [char]0x200B + $falso2 + " `r`n")
@@ -191,9 +230,10 @@ jobs:
           $b.Add((New-Object Windows.Security.Credentials.PasswordCredential('kelvo-gateway','diego',$t[0])))
           Add-Type -A System.Windows.Forms;[Windows.Forms.Clipboard]::Clear()
           $h=-join([Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::ASCII.GetBytes($t[0]))[0..3]|%{$_.ToString('x2')})
-          Write-Host "Token guardado, huella $h. Abriendo Kelvo Hermes..." -F Green
-          Get-Process 'Kelvo Hermes' -EA 0|Stop-Process -Force;Start-Sleep 2
-          Start-Process "$env:LOCALAPPDATA\Programs\Kelvo Hermes\Kelvo Hermes.exe"
+          Write-Host "Token guardado, huella $h. Abriendo Kelvo..." -F Green
+          Get-Process 'Kelvo','Kelvo Hermes' -EA 0|Stop-Process -Force;Start-Sleep 2
+          $a=@("$env:LOCALAPPDATA\Programs\Kelvo\Kelvo.exe","$env:LOCALAPPDATA\Programs\Kelvo Hermes\Kelvo Hermes.exe")|?{Test-Path $_}|Select -First 1
+          if($a){Start-Process $a}else{Write-Host 'No encuentro Kelvo instalada.' -F Yellow}
           '@; $f="$env:TEMP\kelvo-token.ps1"; Set-Content -Path $f -Value $s -Encoding ASCII; powershell -NoProfile -ExecutionPolicy Bypass -File $f
           }
           Start-Sleep -Seconds 30
@@ -212,13 +252,13 @@ jobs:
           'llave de la Bandeja (kelvo-estudio): bien'
 
           # Control: sin credencial la app no apunta a gpu-01.
-          Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Get-Process -Name 'Kelvo' -ErrorAction SilentlyContinue | Stop-Process -Force
           Start-Sleep -Seconds 3
           powershell.exe -NoProfile -Command "[void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]; `$b = New-Object Windows.Security.Credentials.PasswordVault; `$b.Remove(`$b.Retrieve('kelvo-gateway', 'diego'))"
-          Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Kelvo Hermes\Kelvo Hermes.exe"
+          Start-Process -FilePath "$env:LOCALAPPDATA\Programs\Kelvo\Kelvo.exe"
           Start-Sleep -Seconds 30
           $sin = Ultima-Kelvo
           "sin credencial -> $sin"
-          Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
+          Get-Process -Name 'Kelvo' -ErrorAction SilentlyContinue | Stop-Process -Force
           if ($sin -notmatch 'sin token kelvo-gateway') { throw 'sin credencial la app no dijo que le faltaba el token' }
           'la app encuentra la credencial y sólo con ella apunta a gpu-01: bien'

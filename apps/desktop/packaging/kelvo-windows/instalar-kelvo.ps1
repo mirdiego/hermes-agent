@@ -1,4 +1,4 @@
-﻿# Instala Kelvo Hermes en Windows en un solo paso: baja el instalador de gpu-01 por Tailscale, revisa su sha256,
+﻿# Instala Kelvo en Windows en un solo paso: baja el instalador de gpu-01 por Tailscale, revisa su sha256,
 # lo instala para tu usuario, guarda el token del gateway que copiaste y abre la app.
 #
 #   1. Copia el token (Ctrl+C) desde el mensaje de Diego.
@@ -21,11 +21,11 @@ if ($PSVersionTable.PSEdition -ne 'Desktop') {
   exit $LASTEXITCODE
 }
 
-$nombre = 'Kelvo-Hermes-socios-win-x64.exe'
+$nombre = 'Kelvo-socios-win-x64.exe'
 $recurso = 'kelvo-gateway'
 $usuario = 'diego'
-$carpeta = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo Hermes'
-$app = Join-Path $carpeta 'Kelvo Hermes.exe'
+$carpeta = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo'
+$app = Join-Path $carpeta 'Kelvo.exe'
 
 function Paso($n, $texto) { Write-Host "[$n/5] $texto" -ForegroundColor Cyan }
 function Falla($texto) { Write-Host $texto -ForegroundColor Red; exit 1 }
@@ -49,7 +49,7 @@ if ($candidatos.Count -eq 1) {
 }
 
 Paso 2 'Bajar el instalador desde gpu-01'
-$tmp = Join-Path $env:TEMP 'kelvo-hermes'
+$tmp = Join-Path $env:TEMP 'kelvo-instalador'
 New-Item -ItemType Directory -Force $tmp | Out-Null
 try {
   Invoke-WebRequest -UseBasicParsing -Uri "$Base/$nombre.sha256" -OutFile (Join-Path $tmp "$nombre.sha256")
@@ -81,8 +81,8 @@ if ($token) {
   Write-Host '      Se mantiene el token guardado antes.'
 }
 
-Write-Host 'Listo: Kelvo Hermes quedó instalada (menú Inicio y escritorio).' -ForegroundColor Green
+Write-Host 'Listo: Kelvo quedó instalada (menú Inicio y escritorio).' -ForegroundColor Green
 if (-not $SinAbrir) {
   Start-Process -FilePath $app
-  Write-Host 'Abriendo Kelvo Hermes...' -ForegroundColor Green
+  Write-Host 'Abriendo Kelvo...' -ForegroundColor Green
 }

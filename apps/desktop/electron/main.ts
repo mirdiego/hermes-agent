@@ -2248,7 +2248,7 @@ rememberLog(`[kelvo] gateway remoto: ${kelvoConexion}`) // kelvo: parche W1
 // kelvo: parche W1, el instalador NSIS de Kelvo (packaging/kelvo-windows) crea el acceso del menú Inicio sin
 // AppUserModelID; se lo pone la app para que las notificaciones de Windows aparezcan, y deja el resultado en desktop.log.
 if (IS_WINDOWS) {
-  const kelvoAcceso = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Kelvo Hermes.lnk')
+  const kelvoAcceso = path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Kelvo.lnk') // kelvo: parche W3
 
   if (fs.existsSync(kelvoAcceso)) {
     try {

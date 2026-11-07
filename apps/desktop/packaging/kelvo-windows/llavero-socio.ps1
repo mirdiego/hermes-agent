@@ -64,7 +64,7 @@ Remove-Variable valor, guardado
 Write-Host "Listo: guardada en el Administrador de credenciales (Credenciales web, $recurso, huella $huella). Portapapeles vaciado." -ForegroundColor Green
 
 if ($Modo -eq 'estudio') {
-  Write-Host 'La Bandeja la toma sola en unos segundos; si no, cierra y vuelve a abrir Kelvo Hermes.' -ForegroundColor Green
+  Write-Host 'La Bandeja la toma sola en unos segundos; si no, cierra y vuelve a abrir Kelvo.' -ForegroundColor Green
   exit 0
 }
 
@@ -74,10 +74,10 @@ if (-not $alcance) {
 }
 
 # Si la app ya está instalada, se reabre para que tome el token nuevo.
-$app = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo Hermes\Kelvo Hermes.exe'
+$app = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo\Kelvo.exe'
 if (Test-Path -LiteralPath $app) {
-  Get-Process -Name 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
+  Get-Process -Name 'Kelvo', 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
   Start-Sleep -Seconds 2
   Start-Process -FilePath $app
-  Write-Host 'Abriendo Kelvo Hermes...' -ForegroundColor Green
+  Write-Host 'Abriendo Kelvo...' -ForegroundColor Green
 }
