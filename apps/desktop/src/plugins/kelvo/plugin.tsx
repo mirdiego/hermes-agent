@@ -15,7 +15,6 @@ import {
   type RouteContribution,
   ROUTES_AREA,
   SIDEBAR_NAV_AREA,
-  SIDEBAR_NAV_PREFS_AREA,
   type SidebarNavContribution,
   STATUSBAR_AREAS,
   THEMES_AREA
@@ -80,8 +79,6 @@ const plugin: HermesPlugin = {
 
     ctx.registerMany([
       { id: 'tema', area: THEMES_AREA, data: kelvoGrafito },
-      // Mensajería y Pairing no se usan; la fila la ocupará la Bandeja de solicitudes.
-      { id: 'barra', area: SIDEBAR_NAV_PREFS_AREA, data: { hide: ['messaging'] } },
       {
         id: 'motor',
         area: STATUSBAR_AREAS.right,
