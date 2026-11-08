@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
+import { abrirHtmlDeConversacion } from '@/app/artifacts/kelvo-vista-caja'
 import { useSessionView } from '@/app/chat/session-view'
 import { useI18n } from '@/i18n'
 import { isDesktopFsRemoteMode } from '@/lib/desktop-fs'
@@ -143,6 +144,11 @@ export function PreviewAttachment({ target }: { target: string }) {
     if (isActive) {
       closePreviewForSource(target)
 
+      return
+    }
+
+    // kelvo: parche 40, un .html de la caja se abre en el visor aislado de Salidas, con esta conversación.
+    if (sessionId && abrirHtmlDeConversacion(target, cwd, sessionId)) {
       return
     }
 

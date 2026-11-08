@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { conCsp, conTope, CSP_CAJA, esHtml, htmlDeDataUrl, TOPE_HTML_BYTES } from './kelvo-vista-caja'
+import { conCsp, conTope, CSP_CAJA, esHtml, htmlDeDataUrl, rutaEnCaja, TOPE_HTML_BYTES } from './kelvo-vista-caja'
 
 const dataUrl = (html: string, tipo = 'text/html') =>
   `data:${tipo};base64,${btoa(String.fromCharCode(...new TextEncoder().encode(html)))}`
@@ -52,5 +52,14 @@ describe('espera', () => {
   it('una lectura colgada termina en un aviso', async () => {
     await expect(conTope(new Promise(() => {}), 20)).rejects.toThrow('no respondió a tiempo')
     await expect(conTope(Promise.resolve('ok'), 20)).resolves.toBe('ok')
+  })
+})
+
+describe('ruta de un enlace en la conversación', () => {
+  it('resuelve una relativa contra la carpeta de trabajo y deja la absoluta', () => {
+    expect(rutaEnCaja('salida/ficalor_dashboard.html', '/trabajo/ficalor')).toBe('/trabajo/ficalor/salida/ficalor_dashboard.html')
+    expect(rutaEnCaja('./x.html', '/trabajo/')).toBe('/trabajo/x.html')
+    expect(rutaEnCaja('/trabajo/ficalor/salida/ficalor_dashboard.html', '/otra')).toBe('/trabajo/ficalor/salida/ficalor_dashboard.html')
+    expect(rutaEnCaja('file:///trabajo/x.html', null)).toBe('/trabajo/x.html')
   })
 })

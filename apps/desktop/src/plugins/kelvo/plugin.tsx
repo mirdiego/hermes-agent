@@ -44,7 +44,11 @@ const PROPIOS_ES = {
       ]
     }
   },
-  shell: { statusbar: { backend: 'Motor', messagingStopped: 'mensajería apagada', gatewayReady: 'listo' } }
+  shell: { statusbar: { backend: 'Motor', messagingStopped: 'mensajería apagada', gatewayReady: 'listo' } },
+  settings: {
+    gateway: { remoteUrlDesc: 'URL base del backend del dashboard remoto. Se admiten prefijos de ruta, por ejemplo /kelvo.' }
+  },
+  install: { remoteUrlPlaceholder: 'https://gateway.example.com/kelvo' }
 }
 
 const PROPIOS_EN = {

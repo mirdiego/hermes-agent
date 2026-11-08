@@ -7,8 +7,9 @@
 
 import { useState } from 'react'
 
+import { sessionFileOwnerScope } from '@/api/client'
 import { artifactContentHash } from '@/lib/artifact-detect'
-import { readDesktopFileDataUrl } from '@/lib/desktop-fs'
+import { isDesktopFsRemoteMode, readDesktopFileDataUrl } from '@/lib/desktop-fs'
 import { getArtifact, openArtifact, selectArtifactVersion, upsertArtifact } from '@/store/artifacts'
 import { artifactPreviewTarget } from '@/store/artifacts'
 import { notifyError } from '@/store/notifications'
@@ -144,6 +145,33 @@ export async function verEnKelvo(fuente: FuenteCaja, irAConversacion?: (sessionI
   } else {
     openArtifact(id)
   }
+}
+
+/** Ruta absoluta en la caja: una relativa se resuelve contra la carpeta de trabajo de la conversación. */
+export function rutaEnCaja(ruta: string, cwd?: null | string): string {
+  const limpia = ruta.trim().replace(/^file:\/\//i, '')
+
+  if (limpia.startsWith('/') || limpia.startsWith('~') || !cwd) {
+    return limpia
+  }
+
+  return `${cwd.replace(/\/+$/, '')}/${limpia.replace(/^\.\//, '')}`
+}
+
+/** kelvo: parche 40. Si la app trabaja contra la caja y el enlace es un .html, lo abre aquí; si no, false. */
+export function abrirHtmlDeConversacion(ruta: string, cwd: null | string | undefined, sessionId: string): boolean {
+  if (!esHtml(ruta) || !sessionId || !isDesktopFsRemoteMode()) {
+    return false
+  }
+
+  const completa = rutaEnCaja(ruta, cwd)
+  const profile = sessionFileOwnerScope(sessionId)?.profile
+
+  verEnKelvo({ profile, ruta: completa, sessionId, titulo: completa.split('/').pop() || completa }).catch(error =>
+    notifyError(error, 'No se pudo abrir aquí')
+  )
+
+  return true
 }
 
 /** Vuelve a leer el archivo de la caja; si cambió queda como versión nueva. */

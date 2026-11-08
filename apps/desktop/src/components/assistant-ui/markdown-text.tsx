@@ -21,6 +21,7 @@ import {
 } from 'react'
 import { defaultRemarkPlugins } from 'streamdown'
 
+import { abrirHtmlDeConversacion } from '@/app/artifacts/kelvo-vista-caja'
 import { useSessionView } from '@/app/chat/session-view'
 import { ExpandableBlock } from '@/components/chat/expandable-block'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
@@ -133,6 +134,11 @@ function useOpenMediaFile(path: string) {
   const [openFailed, setOpenFailed] = useState(false)
 
   const open = () => {
+    // kelvo: parche 40
+    if (sessionId && abrirHtmlDeConversacion(path, null, sessionId)) {
+      return
+    }
+
     if (window.hermesDesktop && isRemoteGateway()) {
       setOpenFailed(false)
       void downloadGatewayMediaFile(path, sessionId ? { sessionId } : undefined).catch(() =>
