@@ -53,6 +53,7 @@ import {
 import { BotonBiblioteca } from './kelvo-biblioteca'
 // kelvo: parche 32
 import { agruparEntregables, type ArtifactConTrabajo } from './kelvo-entregables'
+import { BotonVerAqui } from './kelvo-vista-caja'
 
 function formatArtifactTime(timestamp: number): string {
   return fmtDayTime.format(new Date(timestamp))
@@ -697,7 +698,15 @@ const PrimaryCell = memo(function PrimaryCell({ artifact, ctx }: { artifact: Art
       </span>
       </ArtifactCellAction>
       <div className="px-2.5 pb-1">
-        {!isLink && <BotonBiblioteca origen={artifact.sessionTitle} ruta={artifact.value} titulo={artifact.label} />}
+        {!isLink && (
+          <span className="inline-flex items-center gap-3">
+            <BotonVerAqui
+              fuente={{ profile: artifact.profile, ruta: artifact.value, sessionId: artifact.sessionId, titulo: artifact.label }}
+              irAConversacion={ctx.onOpenChat}
+            />
+            <BotonBiblioteca origen={artifact.sessionTitle} ruta={artifact.value} titulo={artifact.label} />
+          </span>
+        )}
         <ArchivosDeTrabajo artifact={artifact} onOpen={item => void ctx.onOpen(item)} />
       </div>
     </div>
