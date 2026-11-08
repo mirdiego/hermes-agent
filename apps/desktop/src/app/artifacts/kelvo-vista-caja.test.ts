@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { conCsp, CSP_CAJA, esHtml, htmlDeDataUrl, TOPE_HTML_BYTES } from './kelvo-vista-caja'
+import { conCsp, conTope, CSP_CAJA, esHtml, htmlDeDataUrl, TOPE_HTML_BYTES } from './kelvo-vista-caja'
 
 const dataUrl = (html: string, tipo = 'text/html') =>
   `data:${tipo};base64,${btoa(String.fromCharCode(...new TextEncoder().encode(html)))}`
@@ -45,5 +45,12 @@ describe('qué se abre', () => {
   it('rechaza un archivo sobre el tope', () => {
     const grande = `data:text/html;base64,${'A'.repeat(Math.ceil((TOPE_HTML_BYTES * 4) / 3) + 8)}`
     expect(() => htmlDeDataUrl(grande)).toThrow('16 MB')
+  })
+})
+
+describe('espera', () => {
+  it('una lectura colgada termina en un aviso', async () => {
+    await expect(conTope(new Promise(() => {}), 20)).rejects.toThrow('no respondió a tiempo')
+    await expect(conTope(Promise.resolve('ok'), 20)).resolves.toBe('ok')
   })
 })

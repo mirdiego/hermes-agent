@@ -80,8 +80,44 @@ export function fuenteDeCaja(artifactId: string): FuenteCaja | undefined {
   return fuentes.get(artifactId)
 }
 
+/** Tope de espera de una lectura: mejor un aviso que un botón en «…» para siempre. */
+export const ESPERA_MS = 45000
+
+export function conTope<T>(promesa: Promise<T>, ms = ESPERA_MS): Promise<T> {
+  return new Promise((resolver, rechazar) => {
+    const reloj = setTimeout(() => rechazar(new Error('la caja no respondió a tiempo')), ms)
+    promesa.then(
+      valor => {
+        clearTimeout(reloj)
+        resolver(valor)
+      },
+      error => {
+        clearTimeout(reloj)
+        rechazar(error)
+      }
+    )
+  })
+}
+
+/**
+ * Lee el archivo con el perfil y la conversación de la fila. Con la conversación abierta, el alcance completo de
+ * Desktop (perfil más conexión) dejaba la lectura colgada; pedir con perfil y session_id responde en ~1 s.
+ */
+async function leer(fuente: FuenteCaja): Promise<string> {
+  const api = window.hermesDesktop?.api
+
+  if (!api || !fuente.profile) {
+    return readDesktopFileDataUrl(fuente.ruta, { sessionId: fuente.sessionId })
+  }
+
+  const ruta = `/api/fs/read-data-url?path=${encodeURIComponent(fuente.ruta)}&session_id=${encodeURIComponent(fuente.sessionId)}`
+  const r = await api<string | { dataUrl?: string }>({ path: ruta, profile: fuente.profile })
+
+  return typeof r === 'string' ? r : r?.dataUrl || ''
+}
+
 async function cargar(fuente: FuenteCaja): Promise<string> {
-  const dataUrl = await readDesktopFileDataUrl(fuente.ruta, { sessionId: fuente.sessionId })
+  const dataUrl = await conTope(leer(fuente))
   const html = conCsp(htmlDeDataUrl(dataUrl))
   const nombre = fuente.ruta.split('/').pop() || fuente.titulo
   const r = upsertArtifact(fuente.sessionId, { kind: 'html', language: `caja-${artifactContentHash(fuente.ruta)}`, title: nombre }, html)
