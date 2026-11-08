@@ -26,6 +26,7 @@ function puente(): Puente['biblioteca'] {
 let piezas: PiezaBiblioteca[] = []
 let disponible = false
 let cargando: Promise<void> | null = null
+let ultimoIntento = 0
 const oyentes = new Set<() => void>()
 
 function avisar() {
@@ -58,7 +59,9 @@ export function recargarBiblioteca(): Promise<void> {
 function suscribir(oyente: () => void) {
   oyentes.add(oyente)
 
-  if (!cargando) {
+  // Si la lista no llegó (la app se abrió antes de tener la llave o la ruta), se vuelve a pedir, cada 15 s a lo más.
+  if (!cargando || (!disponible && Date.now() - ultimoIntento > 15000)) {
+    ultimoIntento = Date.now()
     void recargarBiblioteca()
   }
 
