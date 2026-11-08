@@ -25,6 +25,7 @@ function puente(): Puente['biblioteca'] {
 
 let piezas: PiezaBiblioteca[] = []
 let disponible = false
+let motivo = ''
 let cargando: Promise<void> | null = null
 let ultimoIntento = 0
 const oyentes = new Set<() => void>()
@@ -47,9 +48,11 @@ export function recargarBiblioteca(): Promise<void> {
       const lista = (r.datos as { piezas?: unknown } | null)?.piezas
       disponible = r.ok && Array.isArray(lista)
       piezas = disponible ? (lista as PiezaBiblioteca[]) : []
+      motivo = disponible ? '' : motivoDe(r)
     })
-    .catch(() => {
+    .catch((error: unknown) => {
       disponible = false
+      motivo = error instanceof Error ? error.message : 'no responde'
     })
     .finally(avisar)
 
@@ -70,11 +73,11 @@ function suscribir(oyente: () => void) {
   }
 }
 
-let instantanea = { disponible, piezas }
+let instantanea = { disponible, motivo, piezas }
 
 function leer() {
-  if (instantanea.piezas !== piezas || instantanea.disponible !== disponible) {
-    instantanea = { disponible, piezas }
+  if (instantanea.piezas !== piezas || instantanea.disponible !== disponible || instantanea.motivo !== motivo) {
+    instantanea = { disponible, motivo, piezas }
   }
 
   return instantanea
@@ -84,9 +87,30 @@ export function useBiblioteca() {
   return useSyncExternalStore(suscribir, leer)
 }
 
-/** Lo publicado desde esta ruta. La ficha guarda la ruta ya traducida a la caja; se compara también por el final. */
-function publicadaDesde(lista: PiezaBiblioteca[], ruta: string): PiezaBiblioteca | undefined {
-  const cola = ruta.replace(/^\/workspace\//, '')
+/** Por qué no se pudo leer la biblioteca, en pocas palabras para la fila. */
+export function motivoDe(r: Respuesta): string {
+  if (r.status === 401 && /llave/i.test(r.error ?? '')) {
+    return 'falta la llave'
+  }
+
+  if (r.status === 401) {
+    return 'la llave no calza'
+  }
+
+  return 'no responde'
+}
+
+/**
+ * Lo publicado desde esta ruta. La ficha guarda la ruta ya traducida a la caja
+ * (/home/…/greenlab/trabajo/x.png) y Salidas muestra la del contenedor (/trabajo/x.png o /workspace/trabajo/x.png):
+ * se compara por el final, sin barras iniciales.
+ */
+export function publicadaDesde(lista: PiezaBiblioteca[], ruta: string): PiezaBiblioteca | undefined {
+  const cola = ruta.replace(/^\/workspace\//, '').replace(/^\/+/, '')
+
+  if (!cola) {
+    return undefined
+  }
 
   return lista.find(p => p.ruta_origen === ruta || (p.ruta_origen ?? '').endsWith(`/${cola}`))
 }
@@ -114,7 +138,7 @@ export function retirarPieza(pieza: string, motivo: string): Promise<Respuesta> 
 
 /** Botón chico para una fila de Salidas o la cabecera de la vista de un archivo. */
 export function BotonBiblioteca({ origen, ruta, titulo }: { origen?: string; ruta: string; titulo?: string }) {
-  const { disponible: hay, piezas: lista } = useBiblioteca()
+  const { disponible: hay, motivo: porque, piezas: lista } = useBiblioteca()
   const [enviando, setEnviando] = useState(false)
   const [aviso, setAviso] = useState('')
   const publicada = publicadaDesde(lista, ruta)
@@ -123,8 +147,16 @@ export function BotonBiblioteca({ origen, ruta, titulo }: { origen?: string; rut
     setAviso('')
   }, [ruta])
 
-  if (!hay || !ruta || /^https?:\/\//i.test(ruta)) {
+  if (!ruta || /^https?:\/\//i.test(ruta) || !puente()) {
     return null
+  }
+
+  if (!hay) {
+    return porque ? (
+      <span className="text-[0.625rem] text-(--ui-text-tertiary)" title="La biblioteca de servicios no está disponible desde este Mac">
+        Biblioteca: {porque}
+      </span>
+    ) : null
   }
 
   const accion = async () => {
