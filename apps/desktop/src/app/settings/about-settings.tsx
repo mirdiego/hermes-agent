@@ -22,6 +22,21 @@ interface AboutSettingsProps {
 export function AboutSettings({ subpage }: AboutSettingsProps = {}): ReactElement {
   useSettingDeepLink('about', page => subpage === undefined || page === subpage)
 
+  // kelvo: parche 39
+  if (subpage === 'uninstall') {
+    return (
+      <SettingsContent>
+        <p className="mx-auto mt-6 max-w-2xl text-sm text-muted-foreground">
+          Para desinstalar Kelvo, ciérrala y arrastra la app a la Papelera. Tus conversaciones quedan en el motor.
+        </p>
+      </SettingsContent>
+    )
+  }
+
+  if (KELVO_ACERCA_SIMPLE) {
+    return <KelvoAcercaDe />
+  }
+
   if (subpage === 'uninstall') {
     return (
       <SettingsContent>
@@ -35,6 +50,21 @@ export function AboutSettings({ subpage }: AboutSettingsProps = {}): ReactElemen
 
 interface AppUpdatesSettingsProps {
   includeUninstall: boolean
+}
+
+const KELVO_ACERCA_SIMPLE = true
+
+function KelvoAcercaDe(): ReactElement {
+  const version = useStore($desktopVersion)
+
+  return (
+    <SettingsContent>
+      <VersionHero version={version} />
+      <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-muted-foreground">
+        Kelvo · el motor corre en el computador de la organización y los datos no salen de él.
+      </p>
+    </SettingsContent>
+  )
 }
 
 function AppUpdatesSettings({ includeUninstall }: AppUpdatesSettingsProps): ReactElement {

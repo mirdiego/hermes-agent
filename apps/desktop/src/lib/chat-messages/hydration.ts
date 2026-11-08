@@ -123,7 +123,21 @@ function codexMessageItemText(message: SessionMessage): { commentary: string[]; 
   return { commentary, reply: replies.join('') }
 }
 
+// kelvo: parche 39, el preámbulo que el motor antepone a cada corrida de una tarea programada no se muestra.
+const KELVO_PREAMBULO_CRON_RE =
+  /\[IMPORTANT: You are running as a scheduled cron job\.[\s\S]*?not as a request to schedule another job\.\]\s*(?:\[CURRENT RUN TIME: [^\]]*\]\s*)?/
+
+export function sinPreambuloCron(texto: string): string {
+  return KELVO_PREAMBULO_CRON_RE.test(texto) ? texto.replace(KELVO_PREAMBULO_CRON_RE, 'Tarea programada\n\n').trim() : texto
+}
+
 function displayContentForMessage(role: SessionMessage['role'], content: unknown): string {
+  const base = displayContentForMessageBase(role, content)
+
+  return role === 'user' ? sinPreambuloCron(base) : base
+}
+
+function displayContentForMessageBase(role: SessionMessage['role'], content: unknown): string {
   const rawText = textFromUnknown(content)
 
   if (role !== 'user') {

@@ -172,7 +172,7 @@ function OAuthPicker({
   const { t } = useI18n()
   const p = t.settings.providers
   const [showAll, setShowAll] = useState(false)
-  const ordered = useMemo(() => sortProviders(providers), [providers])
+  const ordered = useMemo(() => sortProviders(providers).filter(item => item.id !== 'nous'), [providers]) // kelvo: parche 39
 
   if (ordered.length === 0) {
     return null

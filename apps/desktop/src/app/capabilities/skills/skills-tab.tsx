@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 import { ArchiveSkillConfirmDialog } from '@/app/learning/archive-skill-confirm-dialog'
@@ -18,6 +19,7 @@ import { CatalogSwitch } from '../catalog/catalog-switch'
 import { SkillCatalog } from '../catalog/skill-catalog'
 import { UpdateSkillsButton } from '../catalog/update-skills-button'
 
+import { $soloKelvo } from './kelvo-solo'
 import { SkillDetail } from './skill-detail'
 import { skillsQueryKey, usageOf } from './skills-data'
 
@@ -49,6 +51,7 @@ function ScopedSkillsTab({
   installedError
 }: SkillsTabProps) {
   const { t } = useI18n()
+  const soloKelvo = useStore($soloKelvo)
   const mounted = useRef(true)
   const mutationBusy = useRef(false)
   const editorRequest = useRef(0)
@@ -234,7 +237,11 @@ function ScopedSkillsTab({
       <SkillCatalog
         actions={
           <>
-            <UpdateSkillsButton profile={profile} />
+            {/* kelvo: parche 39 */}
+            <Button onClick={() => $soloKelvo.set(!soloKelvo)} size="xs" type="button" variant="textStrong">
+              {soloKelvo ? 'Ver también las de fábrica' : 'Sólo las de Kelvo'}
+            </Button>
+            {!soloKelvo && <UpdateSkillsButton profile={profile} />}
             <ListStripMenu
               items={[
                 {
@@ -325,6 +332,7 @@ function ScopedSkillsTab({
           </>
         )}
         skills={skills}
+        soloKelvo={soloKelvo}
       />
       {archiveTarget && (
         <ArchiveSkillConfirmDialog
