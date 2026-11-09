@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { conCsp, conTope, CSP_CAJA, esHtml, htmlDeDataUrl, rutaEnCaja, TOPE_HTML_BYTES } from './kelvo-vista-caja'
+import { claveFuente, conCsp, conTope, CSP_CAJA, esHtml, htmlDeDataUrl, rutaEnCaja, TOPE_HTML_BYTES } from './kelvo-vista-caja'
 
 const dataUrl = (html: string, tipo = 'text/html') =>
   `data:${tipo};base64,${btoa(String.fromCharCode(...new TextEncoder().encode(html)))}`
@@ -61,5 +61,12 @@ describe('ruta de un enlace en la conversación', () => {
     expect(rutaEnCaja('./x.html', '/trabajo/')).toBe('/trabajo/x.html')
     expect(rutaEnCaja('/trabajo/ficalor/salida/ficalor_dashboard.html', '/otra')).toBe('/trabajo/ficalor/salida/ficalor_dashboard.html')
     expect(rutaEnCaja('file:///trabajo/x.html', null)).toBe('/trabajo/x.html')
+  })
+})
+
+describe('una carga por archivo', () => {
+  it('la clave distingue archivo y conversación', () => {
+    expect(claveFuente({ ruta: '/trabajo/a.html', sessionId: 's1' })).toBe(claveFuente({ ruta: '/trabajo/a.html', sessionId: 's1' }))
+    expect(claveFuente({ ruta: '/trabajo/a.html', sessionId: 's1' })).not.toBe(claveFuente({ ruta: '/trabajo/a.html', sessionId: 's2' }))
   })
 })

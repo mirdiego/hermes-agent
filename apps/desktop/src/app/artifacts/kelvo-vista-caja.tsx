@@ -82,7 +82,7 @@ export function fuenteDeCaja(artifactId: string): FuenteCaja | undefined {
 }
 
 /** Tope de espera de una lectura: mejor un aviso que un botón en «…» para siempre. */
-export const ESPERA_MS = 45000
+export const ESPERA_MS = 90000 // parche 45: un dashboard de 5 MB por la red privada puede tardar
 
 export function conTope<T>(promesa: Promise<T>, ms = ESPERA_MS): Promise<T> {
   return new Promise((resolver, rechazar) => {
@@ -132,9 +132,55 @@ async function cargar(fuente: FuenteCaja): Promise<string> {
   return r.artifactId
 }
 
+// kelvo: parche 45. Una carga por archivo a la vez: un doble clic, la tarjeta y la fila del cuadro de mensaje
+// reusan la misma promesa en vez de lanzar otra lectura que puede vencer y avisar un error sobre una vista que sí cargó.
+const enCurso = new Map<string, Promise<string>>()
+
+export function claveFuente(fuente: Pick<FuenteCaja, 'ruta' | 'sessionId'>): string {
+  return `${fuente.sessionId}\u0000${fuente.ruta}`
+}
+
+/** ¿Ya hay una vista cargada de este archivo en esta conversación? */
+export function yaCargada(fuente: Pick<FuenteCaja, 'ruta' | 'sessionId'>): boolean {
+  const clave = claveFuente(fuente)
+
+  for (const [id, otra] of fuentes) {
+    if (claveFuente(otra) === clave && getArtifact(id)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+function cargarUnaVez(fuente: FuenteCaja): Promise<string> {
+  const clave = claveFuente(fuente)
+  const previa = enCurso.get(clave)
+
+  if (previa) {
+    return previa
+  }
+
+  const nueva = cargar(fuente).finally(() => enCurso.delete(clave))
+  enCurso.set(clave, nueva)
+
+  return nueva
+}
+
+/** El aviso de error sólo si no hay ya una vista buena de ese archivo. */
+export function avisarSiFalta(fuente: Pick<FuenteCaja, 'ruta' | 'sessionId'>, error: unknown, titulo: string) {
+  if (yaCargada(fuente)) {
+    console.warn('[kelvo] lectura posterior falló; la vista cargada se mantiene', error)
+
+    return
+  }
+
+  notifyError(error, titulo)
+}
+
 /** Abre el archivo en la conversación de la que salió. */
 export async function verEnKelvo(fuente: FuenteCaja, irAConversacion?: (sessionId: string) => void): Promise<void> {
-  const id = await cargar(fuente)
+  const id = await cargarUnaVez(fuente)
   irAConversacion?.(fuente.sessionId)
 
   const record = getArtifact(id)
@@ -167,9 +213,8 @@ export function abrirHtmlDeConversacion(ruta: string, cwd: null | string | undef
   const completa = rutaEnCaja(ruta, cwd)
   const profile = sessionFileOwnerScope(sessionId)?.profile
 
-  verEnKelvo({ profile, ruta: completa, sessionId, titulo: completa.split('/').pop() || completa }).catch(error =>
-    notifyError(error, 'No se pudo abrir aquí')
-  )
+  const fuente = { profile, ruta: completa, sessionId, titulo: completa.split('/').pop() || completa }
+  verEnKelvo(fuente).catch(error => avisarSiFalta(fuente, error, 'No se pudo abrir aquí'))
 
   return true
 }
@@ -182,7 +227,7 @@ export async function recargarDeCaja(artifactId: string): Promise<void> {
     throw new Error('no se sabe de dónde vino')
   }
 
-  const id = await cargar(fuente)
+  const id = await cargarUnaVez(fuente)
   const record = getArtifact(id)
 
   if (record) {
@@ -208,7 +253,7 @@ export function BotonVerAqui({ fuente, irAConversacion }: { fuente: FuenteCaja; 
         event.stopPropagation()
         setAbriendo(true)
         verEnKelvo(fuente, irAConversacion)
-          .catch(error => notifyError(error, 'No se pudo abrir aquí'))
+          .catch(error => avisarSiFalta(fuente, error, 'No se pudo abrir aquí'))
           .finally(() => setAbriendo(false))
       }}
       title="Lo abre dentro de Kelvo, sin red"
