@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { enlazarRutasHtmlKelvo } from './markdown-preprocess'
+import { enlazarRutasHtmlKelvo, preprocessMarkdown } from './markdown-preprocess'
 
 describe('rutas a .html en el texto del agente', () => {
   it('enlaza la ruta seguida de raya, coma, punto o paréntesis', () => {
@@ -20,5 +20,17 @@ describe('rutas a .html en el texto del agente', () => {
     expect(enlazarRutasHtmlKelvo('[d](/trabajo/d.html)')).toBe('[d](/trabajo/d.html)')
     expect(enlazarRutasHtmlKelvo('https://ejemplo.cl/a/b.html')).toBe('https://ejemplo.cl/a/b.html')
     expect(enlazarRutasHtmlKelvo('/trabajo/salida/resultado.json')).toBe('/trabajo/salida/resultado.json')
+  })
+})
+
+describe('ruta .html entre backticks en el mensaje completo (parche 47)', () => {
+  it('queda como enlace de vista previa aunque el código en línea se separe antes', () => {
+    const texto =
+      '- **Dashboard:** `/trabajo/comparacion-app-calor/salida/app_calor_dashboard.html` (4,7 MB, autocontenido).'
+
+    const salida = preprocessMarkdown(texto)
+
+    expect(salida).toContain('[app_calor_dashboard.html](')
+    expect(salida).not.toContain('`/trabajo/comparacion-app-calor/salida/app_calor_dashboard.html`')
   })
 })

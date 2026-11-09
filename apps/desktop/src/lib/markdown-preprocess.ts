@@ -672,7 +672,7 @@ function normalizeVisibleProse(text: string, sourceListIds: Set<string>): string
     .split(INLINE_CODE_SPLIT_RE)
     .map(part =>
       part.startsWith('`')
-        ? part
+        ? enlazarRutasHtmlKelvo(part) // kelvo: parche 47, una ruta .html sola entre backticks también se enlaza
         : part
             .split(MATH_SPAN_SPLIT_RE)
             .map((segment, index) => (index % 2 === 1 ? segment : rewriteProseSegment(segment, sourceListIds)))
