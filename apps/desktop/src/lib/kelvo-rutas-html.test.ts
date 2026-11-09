@@ -34,3 +34,33 @@ describe('ruta .html entre backticks en el mensaje completo (parche 47)', () => 
     expect(salida).not.toContain('`/trabajo/comparacion-app-calor/salida/app_calor_dashboard.html`')
   })
 })
+
+describe('ruta .html con cualquier envoltura de markdown (parche 48)', () => {
+  const R = '/trabajo/ficalor-tmax/salida/ficalor_app_tmax.html'
+
+  const casos: Array<[string, string]> = [
+    ['negrita', `Listo: **${R}**`],
+    ['negrita con guiones bajos', `Listo: __${R}__`],
+    ['cursiva', `Listo: *${R}*`],
+    ['cursiva con guion bajo', `Listo: _${R}_`],
+    ['negrita y código', `Listo: **\`${R}\`**`],
+    ['código', `Listo: \`${R}\``],
+    ['final de oración', `El dashboard quedó en ${R}.`],
+    ['paréntesis', `El dashboard (${R}) está listo.`],
+    ['tachado no, pero comillas', `Abre "${R}"`],
+    ['en una lista', `- ${R}`]
+  ]
+
+  for (const [nombre, texto] of casos) {
+    it(nombre, () => {
+      expect(preprocessMarkdown(texto)).toContain('[ficalor_app_tmax.html](')
+    })
+  }
+
+  it('un enlace markdown ya hecho sigue llevando a la vista previa', () => {
+    const salida = preprocessMarkdown(`Abre [el dashboard](${R}).`)
+
+    expect(salida).toContain('[el dashboard](')
+    expect(salida).not.toContain(`](${R})`)
+  })
+})

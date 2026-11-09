@@ -523,7 +523,11 @@ function routeFileLinksToPreview(text: string): string {
 // kelvo: parche 44. Una ruta absoluta a un .html que el agente escribe suelta en el texto (o sola entre comillas
 // invertidas) se vuelve un enlace de vista previa, igual que un enlace markdown a un archivo: la tarjeta abre el
 // HTML en el visor aislado (parche 40). Se reconoce aunque la sigan « — », coma, punto, paréntesis o backtick.
-const KELVO_RUTA_HTML_RE = /(?<![\w/\]([<.:-])(\/(?:[\w.@-]+\/)*[\w.@-]+\.html?)(?=$|[\s,.;:)\]`'"\u2014\u2013])/g
+// Parche 48: también dentro de negrita o cursiva (** __ * _) y entre paréntesis; nunca la ruta de un enlace ya
+// hecho ](…), la etiqueta [/…] ni una ruta pegada a una palabra o a una URL.
+const KELVO_RUTA_HTML_RE =
+  /(?<![A-Za-z0-9/\][<.:-])(?<!\]\()(\/(?:[\w.@-]+\/)*[\w.@-]+\.html?)(?=$|[\s,.;:)\]`'"*_\u2014\u2013])/g
+
 const KELVO_RUTA_HTML_SOLA_RE = /^`(\/(?:[\w.@-]+\/)*[\w.@-]+\.html?)`$/
 
 function enlaceKelvo(ruta: string): string {
