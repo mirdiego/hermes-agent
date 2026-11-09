@@ -113,6 +113,8 @@ import { useFleetRoster } from './use-fleet-roster'
 import { useProfilePrewarm } from './use-profile-prewarm'
 import { useProfileRailRefreshOnActive } from './use-profile-rail-refresh-on-active'
 
+const KELVO_PERFILES_DE_PRUEBA = new Set(['prueba-mcp', 'socios-prueba', 'cliente-simulado'])
+
 const RAIL_GAP = 4 // px — matches gap-1 between squares.
 
 // Past this many profiles the strip of colored squares stops scaling (tiny
@@ -400,7 +402,8 @@ export function ProfileRail() {
   const onDefault = !isAll && activeKey === 'default'
 
   const named = sortByProfileOrder(
-    profiles.filter(profile => !profile.is_default),
+    // kelvo: parche 42, los perfiles de prueba no van en la barra; siguen en «Gestionar perfiles…».
+    profiles.filter(profile => !profile.is_default && !KELVO_PERFILES_DE_PRUEBA.has(profile.name)),
     order
   )
 
