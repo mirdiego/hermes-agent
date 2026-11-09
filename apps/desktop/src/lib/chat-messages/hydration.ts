@@ -134,7 +134,10 @@ export function sinPreambuloCron(texto: string): string {
 function displayContentForMessage(role: SessionMessage['role'], content: unknown): string {
   const base = displayContentForMessageBase(role, content)
 
-  return role === 'user' ? sinPreambuloCron(base) : base
+  // kelvo: parche 39 revertido a pedido de Diego (9-nov): el preámbulo de las tareas programadas se muestra tal cual.
+  void role
+
+  return base
 }
 
 function displayContentForMessageBase(role: SessionMessage['role'], content: unknown): string {

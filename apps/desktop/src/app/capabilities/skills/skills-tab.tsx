@@ -19,7 +19,7 @@ import { CatalogSwitch } from '../catalog/catalog-switch'
 import { SkillCatalog } from '../catalog/skill-catalog'
 import { UpdateSkillsButton } from '../catalog/update-skills-button'
 
-import { $soloKelvo } from './kelvo-solo'
+import { $soloInstaladas } from './kelvo-solo'
 import { SkillDetail } from './skill-detail'
 import { skillsQueryKey, usageOf } from './skills-data'
 
@@ -51,7 +51,7 @@ function ScopedSkillsTab({
   installedError
 }: SkillsTabProps) {
   const { t } = useI18n()
-  const soloKelvo = useStore($soloKelvo)
+  const soloInstaladas = useStore($soloInstaladas)
   const mounted = useRef(true)
   const mutationBusy = useRef(false)
   const editorRequest = useRef(0)
@@ -238,10 +238,21 @@ function ScopedSkillsTab({
         actions={
           <>
             {/* kelvo: parche 39 */}
-            <Button onClick={() => $soloKelvo.set(!soloKelvo)} size="xs" type="button" variant="textStrong">
-              {soloKelvo ? 'Ver también las de fábrica' : 'Sólo las de Kelvo'}
-            </Button>
-            {!soloKelvo && <UpdateSkillsButton profile={profile} />}
+            <span className="inline-flex items-center gap-0.5 rounded-md border border-(--ui-stroke-tertiary) p-0.5">
+              {([false, true] as const).map(valor => (
+                <Button
+                  aria-pressed={soloInstaladas === valor}
+                  key={String(valor)}
+                  onClick={() => $soloInstaladas.set(valor)}
+                  size="xs"
+                  type="button"
+                  variant={soloInstaladas === valor ? 'secondary' : 'ghost'}
+                >
+                  {valor ? 'Instaladas' : 'Todas'}
+                </Button>
+              ))}
+            </span>
+            <UpdateSkillsButton profile={profile} />
             <ListStripMenu
               items={[
                 {
@@ -332,7 +343,7 @@ function ScopedSkillsTab({
           </>
         )}
         skills={skills}
-        soloKelvo={soloKelvo}
+        soloInstaladas={soloInstaladas}
       />
       {archiveTarget && (
         <ArchiveSkillConfirmDialog

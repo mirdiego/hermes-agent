@@ -605,7 +605,8 @@ export function ProfileRail() {
             onSelectRest={switchToRest}
             // Fleet drops the home pill, so the menu is the active default's
             // only door; every at-rest group already lists its own (#106017, #131632).
-            profiles={fleet && defaultProfile ? [defaultProfile, ...named] : named}
+            // kelvo: parche 43, el menú lista todos los perfiles, también el principal.
+            profiles={defaultProfile ? [defaultProfile, ...named] : named}
             restGroups={restGroups}
             unserved={unserved}
           />

@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { esDeKelvo } from './kelvo-solo'
+import { $soloInstaladas, esInstalada } from './kelvo-solo'
 
-describe('skills de Kelvo', () => {
-  it('deja fuera las de fábrica y las del catálogo público', () => {
-    expect(esDeKelvo({ provenance: 'bundled' })).toBe(false)
-    expect(esDeKelvo({ provenance: 'hub' })).toBe(false)
-    expect(esDeKelvo({ provenance: 'agent' })).toBe(true)
-    expect(esDeKelvo({ provenance: 'external' })).toBe(true)
+describe('filtro de skills instaladas', () => {
+  it('parte en «Todas» y reconoce las instaladas', () => {
+    expect($soloInstaladas.get()).toBe(false)
+    expect(esInstalada({ name: 'ficalor', provenance: 'agent' })).toBe(true)
+    expect(esInstalada({ name: 'codex', provenance: 'bundled' })).toBe(true)
+    expect(esInstalada(undefined)).toBe(false)
   })
 })

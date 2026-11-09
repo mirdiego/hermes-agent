@@ -9,7 +9,7 @@ import { HUB_SOURCES_KEY, installHubSkill, notifyHubActionFailed, OFFICIAL_SKILL
 import { notify } from '@/store/notifications'
 import type { SkillHubSourcesResponse, SkillInfo } from '@/types/hermes'
 
-import { esDeKelvo } from '../skills/kelvo-solo'
+import { esInstalada } from '../skills/kelvo-solo'
 import { skillSearchTerms } from '../skills/skills-data'
 
 import { CatalogAlert } from './catalog-alert'
@@ -26,8 +26,8 @@ interface SkillCatalogProps {
   notice?: ReactNode
   renderInstalledDetail: (skill: SkillInfo) => ReactNode
   renderInstalledAction?: (skill: SkillInfo) => ReactNode
-  /** kelvo: parche 39, sólo las skills de Kelvo y sin el catálogo público. */
-  soloKelvo?: boolean
+  /** kelvo: parche 43, sólo las skills instaladas en el perfil y sin el catálogo público. */
+  soloInstaladas?: boolean
 }
 
 /** Public discovery and the profile's local skills share one browser. Management
@@ -46,7 +46,7 @@ function ScopedSkillCatalog({
   notice,
   renderInstalledDetail,
   renderInstalledAction,
-  soloKelvo
+  soloInstaladas
 }: SkillCatalogProps) {
   const { t } = useI18n()
   const h = t.skills.hub
@@ -284,13 +284,7 @@ function ScopedSkillCatalog({
       isInstalling={entry => installing.has(installIdentifier(entry) ?? '')}
       isSuperseded={isSuperseded}
       kelvoFiltro={
-        soloKelvo
-          ? entry => {
-              const skill = catalog.skillsById.get(entry.id)
-
-              return Boolean(skill && esDeKelvo(skill))
-            }
-          : undefined
+        soloInstaladas ? entry => esInstalada(catalog.skillsById.get(entry.id)) : undefined
       }
       kind="skills"
       matchInstalled={catalog.matchInstalled}
