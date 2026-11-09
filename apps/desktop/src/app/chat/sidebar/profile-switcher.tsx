@@ -124,7 +124,10 @@ const PROFILE_DROPDOWN_THRESHOLD = 13
 
 // The Webapp always takes the dropdown: squares are a native-window gesture
 // surface (drag, hold-to-recolor), and in a browser tab they read as chrome.
-const ALWAYS_CONDENSED = !hostHas('profileRailSquares')
+// kelvo: parche 43, en Kelvo la barra es siempre el menú compacto: lista todos los perfiles por su nombre, se elige
+// con un clic y no depende del ancho de la barra lateral (los cuadrados con letras se cortaban bajo el «+»).
+const KELVO_SIEMPRE_MENU = true
+const ALWAYS_CONDENSED = KELVO_SIEMPRE_MENU ? true : !hostHas('profileRailSquares')
 
 // The home pill's profile when the multi-profile rail shows one: the default profile. A gateway that
 // does not serve default (one launched as another profile, in the Webapp) refuses the switch, so the
