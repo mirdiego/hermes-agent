@@ -47,7 +47,8 @@ function limpiarNodoTexto(nodo: Text) {
 }
 
 function limpiarAtributos(el: Element) {
-  if (saltar(el)) {
+  // Las ayudas de un campo (placeholder, title) sí se limpian; lo que la persona escribe, no.
+  if (el.closest('[data-message-id]')) {
     return
   }
 
@@ -71,11 +72,15 @@ export function limpiarArbol(raiz: Node) {
     return
   }
 
-  if (raiz.nodeType !== Node.ELEMENT_NODE || saltar(raiz as Element)) {
+  if (raiz.nodeType !== Node.ELEMENT_NODE) {
     return
   }
 
   limpiarAtributos(raiz as Element)
+
+  if (saltar(raiz as Element)) {
+    return
+  }
 
   const textos = document.createTreeWalker(raiz, NodeFilter.SHOW_TEXT)
 

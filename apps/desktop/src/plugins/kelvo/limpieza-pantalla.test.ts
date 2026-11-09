@@ -22,11 +22,12 @@ describe('limpieza de marca en pantalla', () => {
     document.body.innerHTML = `
       <div><span title="Hermes Agent">Hermes Agent</span></div>
       <div data-message-id="1"><p>El agente Hermes dijo algo</p></div>
-      <textarea>Hermes</textarea>`
+      <textarea placeholder="Dale una tarea a Hermes">Hermes</textarea>`
     limpiarArbol(document.body)
     expect(document.querySelector('span')?.textContent).toBe('Kelvo')
     expect(document.querySelector('span')?.getAttribute('title')).toBe('Kelvo')
     expect(document.querySelector('[data-message-id] p')?.textContent).toBe('El agente Hermes dijo algo')
     expect(document.querySelector('textarea')?.value).toBe('Hermes')
+    expect(document.querySelector('textarea')?.getAttribute('placeholder')).toBe('Dale una tarea a Kelvo')
   })
 })
