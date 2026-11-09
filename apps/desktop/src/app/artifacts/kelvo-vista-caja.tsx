@@ -219,6 +219,24 @@ export function abrirHtmlDeConversacion(ruta: string, cwd: null | string | undef
   return true
 }
 
+/**
+ * kelvo: parche 46. Un .html elegido en Salidas (el nombre de la fila o un archivo de trabajo) se abre en el visor
+ * aislado, con su conversación, en vez de descargarse. Devuelve false si no es un .html de la caja.
+ */
+export function abrirHtmlDeSalidas(
+  fuente: FuenteCaja,
+  remoto: boolean,
+  irAConversacion?: (sessionId: string) => void
+): boolean {
+  if (!remoto || !esHtml(fuente.ruta) || !fuente.sessionId) {
+    return false
+  }
+
+  verEnKelvo(fuente, irAConversacion).catch(error => avisarSiFalta(fuente, error, 'No se pudo abrir aquí'))
+
+  return true
+}
+
 /** Vuelve a leer el archivo de la caja; si cambió queda como versión nueva. */
 export async function recargarDeCaja(artifactId: string): Promise<void> {
   const fuente = fuentes.get(artifactId)

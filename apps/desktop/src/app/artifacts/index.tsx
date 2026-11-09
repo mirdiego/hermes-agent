@@ -53,7 +53,7 @@ import {
 import { BotonBiblioteca } from './kelvo-biblioteca'
 // kelvo: parche 32
 import { agruparEntregables, type ArtifactConTrabajo } from './kelvo-entregables'
-import { BotonVerAqui } from './kelvo-vista-caja'
+import { abrirHtmlDeSalidas, BotonVerAqui } from './kelvo-vista-caja'
 
 function formatArtifactTime(timestamp: number): string {
   return fmtDayTime.format(new Date(timestamp))
@@ -344,6 +344,17 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         // URL. Fetch the bytes over the authenticated fs bridge instead.
         // Tilde/relative hrefs have no file URL form. Keep them gateway-owned:
         // expanding them on the client would target the wrong home or cwd.
+        // kelvo: parche 46, un .html de la caja se abre en el visor aislado, no se descarga.
+        if (
+          abrirHtmlDeSalidas(
+            { profile: artifact.profile, ruta: artifact.value, sessionId: artifact.sessionId, titulo: artifact.label },
+            isRemoteGateway(),
+            sessionId => openSessionFromPicker(sessionId, navigate)
+          )
+        ) {
+          return
+        }
+
         if (isRemoteGateway() && isArtifactFilePath(artifact.value)) {
           await downloadGatewayMediaFile(artifact.value, { sessionId: artifact.sessionId, profile: artifact.profile })
 
@@ -359,7 +370,7 @@ export function ArtifactsView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
         notifyError(err, a.openFailed)
       }
     },
-    [a]
+    [a, navigate]
   )
 
   const markImageFailed = useCallback((id: string) => {
