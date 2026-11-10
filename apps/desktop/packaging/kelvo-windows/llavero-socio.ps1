@@ -76,7 +76,10 @@ if (-not $alcance) {
 # Si la app ya está instalada, se reabre para que tome el token nuevo.
 $app = Join-Path $env:LOCALAPPDATA 'Programs\Kelvo\Kelvo.exe'
 if (Test-Path -LiteralPath $app) {
-  Get-Process -Name 'Kelvo', 'Kelvo Hermes' -ErrorAction SilentlyContinue | Stop-Process -Force
+  # Por ruta (parche W4): el Kelvo Desktop anterior (0.2.x) también se llama Kelvo.exe y no se cierra.
+  Get-Process -Name 'Kelvo', 'Kelvo Hermes' -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -like "$env:LOCALAPPDATA\Programs\Kelvo\*" -or $_.Path -like "$env:LOCALAPPDATA\Programs\Kelvo Hermes\*" } |
+    Stop-Process -Force
   Start-Sleep -Seconds 2
   Start-Process -FilePath $app
   Write-Host 'Abriendo Kelvo...' -ForegroundColor Green

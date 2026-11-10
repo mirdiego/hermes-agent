@@ -177,9 +177,17 @@ jobs:
           Set-Content "$env:APPDATA\Kelvo-Hermes\marca-actualizacion.txt" 'datos de Kelvo Hermes'
           $anterior = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
           powershell.exe -NoProfile -Command "[void][Windows.Security.Credentials.PasswordVault, Windows.Security.Credentials, ContentType = WindowsRuntime]; (New-Object Windows.Security.Credentials.PasswordVault).Add((New-Object Windows.Security.Credentials.PasswordCredential('kelvo-gateway', 'diego', '$anterior')))"
+          # El Kelvo Desktop anterior (0.2.x) abierto: también es Kelvo.exe, en Programs\kelvo-desktop. No se cierra (parche W4).
+          $kd = Join-Path $env:LOCALAPPDATA 'Programs\kelvo-desktop'
+          New-Item -ItemType Directory -Force $kd | Out-Null
+          Copy-Item "$env:SystemRoot\System32\PING.EXE" (Join-Path $kd 'Kelvo.exe')
+          $otroKelvo = Start-Process -FilePath (Join-Path $kd 'Kelvo.exe') -ArgumentList '-n', '900', '127.0.0.1' -WindowStyle Hidden -PassThru
           Set-Clipboard -Value 'nada copiado'
           powershell.exe -NoProfile -ExecutionPolicy Bypass -File salida-kelvo\instalar-kelvo-hermes.ps1 -Base http://127.0.0.1:8765
           if ($LASTEXITCODE -ne 0) { throw "instalar-kelvo-hermes.ps1 (actualización) salió con $LASTEXITCODE" }
+          if ($otroKelvo.HasExited) { throw 'el instalador cerró el Kelvo Desktop anterior' }
+          Stop-Process -Id $otroKelvo.Id -Force
+          'el Kelvo Desktop anterior sigue abierto: bien'
           if (Test-Path -LiteralPath $viejo) { throw 'quedó la carpeta de Kelvo Hermes' }
           foreach ($l in $accesosViejos) { if (Test-Path -LiteralPath $l) { throw "quedó el acceso $l" } }
           foreach ($l in @((Join-Path ([Environment]::GetFolderPath('Programs')) 'Kelvo.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Kelvo.lnk'))) { if (-not (Test-Path -LiteralPath $l)) { throw "falta el acceso $l" } }

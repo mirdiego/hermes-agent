@@ -2254,11 +2254,17 @@ if (IS_WINDOWS) {
     try {
       const actual = shell.readShortcutLink(kelvoAcceso)
 
-      if (actual.appUserModelId !== PRODUCT_IDENTITY.appId) {
-        shell.writeShortcutLink(kelvoAcceso, 'update', { ...actual, appUserModelId: PRODUCT_IDENTITY.appId })
-      }
+      // parche W4: el Kelvo Desktop anterior (0.2.x) también crea «Kelvo.lnk»; si apunta a esa app, no se le pone
+      // el AppUserModelID de esta.
+      if (path.resolve(actual.target).toLowerCase() !== path.resolve(process.execPath).toLowerCase()) {
+        rememberLog(`[kelvo] acceso del menú Inicio: apunta a otra app (${actual.target}), no lo toco`)
+      } else {
+        if (actual.appUserModelId !== PRODUCT_IDENTITY.appId) {
+          shell.writeShortcutLink(kelvoAcceso, 'update', { ...actual, appUserModelId: PRODUCT_IDENTITY.appId })
+        }
 
-      rememberLog(`[kelvo] acceso del menú Inicio: AppUserModelID ${shell.readShortcutLink(kelvoAcceso).appUserModelId || '(vacío)'}`)
+        rememberLog(`[kelvo] acceso del menú Inicio: AppUserModelID ${shell.readShortcutLink(kelvoAcceso).appUserModelId || '(vacío)'}`)
+      }
     } catch (error) {
       rememberLog(`[kelvo] acceso del menú Inicio: no pude marcarlo (${error instanceof Error ? error.message : String(error)})`)
     }

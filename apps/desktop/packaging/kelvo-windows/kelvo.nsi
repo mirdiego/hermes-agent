@@ -75,7 +75,8 @@ VIAddVersionKey /LANG=1034 "ProductVersion" "${VERSION}"
 !insertmacro MUI_LANGUAGE "Spanish"
 
 !macro CerrarApp
-  nsExec::Exec '"$SYSDIR\taskkill.exe" /IM "${EJECUTABLE}" /F /T'
+  ; Por ruta y no por nombre (parche W4): el Kelvo Desktop anterior (0.2.x, en Programs\kelvo-desktop) también es Kelvo.exe.
+  nsExec::Exec `"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "Get-Process -Name 'Kelvo' -ErrorAction SilentlyContinue | Where-Object { $$_.Path -like '$INSTDIR\*' } | Stop-Process -Force"`
   Pop $0
   nsExec::Exec '"$SYSDIR\taskkill.exe" /IM "${VIEJO_NOMBRE}.exe" /F /T'
   Pop $0
