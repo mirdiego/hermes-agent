@@ -3,7 +3,6 @@ import { useStore } from '@nanostores/react'
 import { type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { LogSearchField, useLogSearch } from '@/components/chat/log-search'
-import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -131,9 +130,14 @@ function RowIconButton({
   )
 }
 
+const KELVO_SIN_ACTUALIZAR = true
+
 /** The System card's Update button. Hermes Cloud updates its agents itself, so it has none there. */
 function UpdateHermesButton({ label, onClick }: { label: string; onClick: () => void }) {
-  if (useStore($cloudOwnsUpdates).backend) {
+  // kelvo: parche 39, el motor de la caja se actualiza a mano (levantar.sh), nunca desde la app.
+  const cloudBackend = useStore($cloudOwnsUpdates).backend
+
+  if (KELVO_SIN_ACTUALIZAR || cloudBackend) {
     return null
   }
 
@@ -577,12 +581,10 @@ export function CommandCenterView({
                       </span>
                     )}
                   </div>
-                  <LogTail
-                    className="flex-1 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary)"
-                    emptyLabel={cc.noLogs}
-                    lines={systemLoading && logs.length === 0 ? null : logs}
-                    search={logSearch}
-                  />
+                  <div className="flex-1 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3 text-xs text-(--ui-text-tertiary)">
+                    {/* kelvo: parche 39 */}
+                    Los registros técnicos del motor se revisan en la caja.
+                  </div>
                 </div>
               </div>
             )}

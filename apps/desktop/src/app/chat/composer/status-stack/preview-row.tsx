@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { memo, useState } from 'react'
 
+import { abrirHtmlDeConversacion } from '@/app/artifacts/kelvo-vista-caja'
 import { StatusRow } from '@/components/chat/status-row'
 import { Codicon } from '@/components/ui/codicon'
 import { Tip } from '@/components/ui/tooltip'
@@ -11,6 +12,7 @@ import { cn } from '@/lib/utils'
 import { notifyError } from '@/store/notifications'
 import { $previewTabSources, closePreviewForSource, openPreview, renderedHtmlTarget } from '@/store/preview'
 import { type PreviewArtifact } from '@/store/preview-status'
+import { $focusedStoredSessionId } from '@/store/session-focus'
 
 interface PreviewStatusRowProps {
   item: PreviewArtifact
@@ -46,6 +48,11 @@ export const PreviewStatusRow = memo(function PreviewStatusRow({ item, onDismiss
       return
     }
 
+    // kelvo: parche 40, un .html de la caja se abre en el visor aislado, con esta conversación.
+    if (abrirHtmlDeConversacion(item.target, item.cwd, $focusedStoredSessionId.get() ?? '')) {
+      return
+    }
+
     setOpening(true)
 
     try {
@@ -58,6 +65,11 @@ export const PreviewStatusRow = memo(function PreviewStatusRow({ item, onDismiss
   }
 
   const openDefaultTarget = async () => {
+    // kelvo: parche 40
+    if (abrirHtmlDeConversacion(item.target, item.cwd, $focusedStoredSessionId.get() ?? '')) {
+      return
+    }
+
     try {
       const target = await resolveTarget()
 

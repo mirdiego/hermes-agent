@@ -12,6 +12,8 @@ import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, u
 import { defaultRehypePlugins, defaultRemarkPlugins, Streamdown } from 'streamdown'
 
 import { getApiRequestConnection } from '@/api/client'
+// kelvo: parche 36
+import { BotonBiblioteca } from '@/app/artifacts/kelvo-biblioteca'
 import { requestComposerFocus, requestComposerInsertRefs } from '@/app/chat/composer/focus'
 import { droppedFileInlineRef } from '@/app/chat/composer/inline-refs'
 import { HERMES_PATHS_MIME } from '@/app/chat/hooks/use-composer-actions'
@@ -1259,7 +1261,10 @@ export function LocalFilePreview({
           modes={modes}
           onSelect={selectMode}
           trailing={
-            canEdit ? (
+            // kelvo: parche 36, publicar el documento para clientes
+            <>
+            {filePath && <BotonBiblioteca ruta={filePath} />}
+            {canEdit ? (
               <Tip label={`${t.preview.edit} (e)`}>
                 <button
                   className="flex items-center gap-1 text-[0.625rem] font-bold text-muted-foreground underline-offset-4 transition-colors hover:text-foreground"
@@ -1270,7 +1275,8 @@ export function LocalFilePreview({
                   {t.preview.edit}
                 </button>
               </Tip>
-            ) : null
+            ) : null}
+            </>
           }
         />
         <div className="min-h-0 flex-1 overflow-auto">

@@ -92,6 +92,8 @@ import { useSettingDeepLink } from './use-setting-deep-link'
 // config.yaml and the cold-start restore in use-desktop-integrations), not a
 // renderer store. Saves write through the shared react-query cache so the
 // restore gate sees the new value on the next launch.
+const KELVO_TEMAS_OCULTOS = new Set(['nous', 'nous-alt', 'classic'])
+
 function ResumeLastSessionSetting() {
   const { t } = useI18n()
   const a = t.settings.appearance
@@ -479,6 +481,7 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
   const needle = normalize(query)
 
   const filteredThemes = availableThemes
+    .filter(theme => !KELVO_TEMAS_OCULTOS.has(theme.name)) // kelvo: parche 39
     .filter(
       theme =>
         !needle ||

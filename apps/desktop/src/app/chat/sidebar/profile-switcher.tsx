@@ -113,6 +113,8 @@ import { useFleetRoster } from './use-fleet-roster'
 import { useProfilePrewarm } from './use-profile-prewarm'
 import { useProfileRailRefreshOnActive } from './use-profile-rail-refresh-on-active'
 
+const KELVO_PERFILES_DE_PRUEBA = new Set(['prueba-mcp', 'socios-prueba', 'cliente-simulado'])
+
 const RAIL_GAP = 4 // px — matches gap-1 between squares.
 
 // Past this many profiles the strip of colored squares stops scaling (tiny
@@ -122,7 +124,10 @@ const PROFILE_DROPDOWN_THRESHOLD = 13
 
 // The Webapp always takes the dropdown: squares are a native-window gesture
 // surface (drag, hold-to-recolor), and in a browser tab they read as chrome.
-const ALWAYS_CONDENSED = !hostHas('profileRailSquares')
+// kelvo: parche 43, en Kelvo la barra es siempre el menú compacto: lista todos los perfiles por su nombre, se elige
+// con un clic y no depende del ancho de la barra lateral (los cuadrados con letras se cortaban bajo el «+»).
+const KELVO_SIEMPRE_MENU = true
+const ALWAYS_CONDENSED = KELVO_SIEMPRE_MENU ? true : !hostHas('profileRailSquares')
 
 // The home pill's profile when the multi-profile rail shows one: the default profile. A gateway that
 // does not serve default (one launched as another profile, in the Webapp) refuses the switch, so the
@@ -400,7 +405,8 @@ export function ProfileRail() {
   const onDefault = !isAll && activeKey === 'default'
 
   const named = sortByProfileOrder(
-    profiles.filter(profile => !profile.is_default),
+    // kelvo: parche 42, los perfiles de prueba no van en la barra; siguen en «Gestionar perfiles…».
+    profiles.filter(profile => !profile.is_default && !KELVO_PERFILES_DE_PRUEBA.has(profile.name)),
     order
   )
 
@@ -599,7 +605,8 @@ export function ProfileRail() {
             onSelectRest={switchToRest}
             // Fleet drops the home pill, so the menu is the active default's
             // only door; every at-rest group already lists its own (#106017, #131632).
-            profiles={fleet && defaultProfile ? [defaultProfile, ...named] : named}
+            // kelvo: parche 43, el menú lista todos los perfiles, también el principal.
+            profiles={defaultProfile ? [defaultProfile, ...named] : named}
             restGroups={restGroups}
             unserved={unserved}
           />

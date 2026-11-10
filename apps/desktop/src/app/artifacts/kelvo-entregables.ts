@@ -3,6 +3,7 @@
 //
 // Regla: es final lo que está en la raíz de la carpeta del trabajo (…/trabajo/archivo) o lo que el agente nombra en
 // su último mensaje con archivos (el de fecha más nueva en la conversación). Los enlaces web se muestran siempre.
+// Un .html es siempre final (parche 46): un dashboard en una subcarpeta no queda escondido entre los de trabajo.
 // Lo demás es de trabajo. Si una conversación no tiene ningún final, se muestran todos sus archivos.
 
 import type { ArtifactRecord } from './artifact-utils'
@@ -40,7 +41,7 @@ export function agruparEntregables(artifacts: ArtifactRecord[]): ArtifactConTrab
   for (const lista of porSesion.values()) {
     const archivos = lista.filter(a => a.kind !== 'link')
     const ultimo = archivos.reduce((max, a) => Math.max(max, a.timestamp), Number.NEGATIVE_INFINITY)
-    const esFinal = (a: ArtifactRecord) => a.kind === 'link' || enRaizDelTrabajo(a.value) || a.timestamp === ultimo
+    const esFinal = (a: ArtifactRecord) => a.kind === 'link' || /\.html?$/i.test(a.value) || enRaizDelTrabajo(a.value) || a.timestamp === ultimo
     const finales = lista.filter(esFinal)
     const trabajo = lista.filter(a => !esFinal(a))
 

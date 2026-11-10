@@ -50,6 +50,8 @@ interface CatalogBrowserProps {
    *  lookalike whose name is taken by an installed skill). */
   isSuperseded?: (entry: CatalogEntry) => boolean
   installedEntries?: CatalogEntry[]
+  /** kelvo: parche 39, deja sólo estas entradas y sin estanterías de descubrimiento. */
+  kelvoFiltro?: (entry: CatalogEntry) => boolean
   matchInstalled?: (entry: CatalogEntry) => CatalogEntry | undefined
   actions?: ReactNode
   headerActions?: ReactNode
@@ -313,6 +315,7 @@ export const CatalogBrowser = memo(function CatalogBrowser({
   isInstalling,
   isSuperseded,
   installedEntries,
+  kelvoFiltro,
   matchInstalled,
   actions,
   headerActions,
@@ -365,11 +368,12 @@ export const CatalogBrowser = memo(function CatalogBrowser({
   const root = useRef<HTMLDivElement>(null)
   useEffect(() => (CATALOG_POINTER_ENABLED && root.current ? trackCatalogPointer(root.current) : undefined), [])
 
-  const entries = mergeInstalled(data ?? [], installedEntries ?? [], matchInstalled)
+  const todas = mergeInstalled(data ?? [], installedEntries ?? [], matchInstalled)
+  const entries = kelvoFiltro ? todas.filter(kelvoFiltro) : todas
   const visible = isSuperseded ? entries.filter(entry => !isSuperseded(entry)) : entries
   const filtered = sortCatalog(filterCatalog(visible, facets, deferredQuery, isInstalled, kind), sort, kind)
 
-  const discover = isDiscoverView(facets, deferredQuery, kind)
+  const discover = !kelvoFiltro && isDiscoverView(facets, deferredQuery, kind)
   const pageOrder = filtered
 
   const selected = visible.find(entry => entry.id === selectedId) ?? filtered[0]

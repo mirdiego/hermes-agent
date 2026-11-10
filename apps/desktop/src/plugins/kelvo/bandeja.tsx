@@ -5,7 +5,8 @@
 import { Button, cn, MessageTextContent } from '@hermes/plugin-sdk'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { pedir } from './bandeja-api'
+import { archivoSolicitud, pedir } from './bandeja-api'
+import { FichaPieza, FilaPieza, useBibliotecaBandeja } from './biblioteca'
 import { DarAcceso, FichaCliente, FilaCliente, useClientes } from './clientes'
 import { FichaServicio, FilaServicio, useServicios } from './servicios'
 
@@ -85,6 +86,57 @@ export function resumenPaso(m: Registro): string {
   const partes = [texto(m.herramienta), texto(m.contenido ?? m.texto).split('\n')[0]].filter(Boolean)
 
   return partes.join(' · ').slice(0, 180)
+}
+
+function tamanoArchivo(bytes: unknown): string {
+  const n = Number(bytes)
+
+  if (!Number.isFinite(n) || n <= 0) {
+    return ''
+  }
+
+  return n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`
+}
+
+/** Los archivos del informe de la ronda vigente (PDF y Word), para verlos antes de aprobar. */
+function FilaArchivos({ archivos, codigo }: { archivos: Registro[]; codigo: string }) {
+  const [aviso, setAviso] = useState('')
+
+  const usar = async (a: Registro, accion: 'abrir' | 'descargar') => {
+    setAviso('')
+    const r = await archivoSolicitud({ codigo, id: texto(a.id), nombre: texto(a.nombre), accion })
+
+    if (!r.ok) {
+      setAviso(r.error || 'no se pudo')
+    } else if (accion === 'descargar') {
+      setAviso(`${r.nombre ?? texto(a.nombre)} quedó en Descargas.`)
+    }
+  }
+
+  return (
+    <div className="mb-3 rounded-lg border border-border bg-card px-3 py-2 text-[12.5px]">
+      <div className="mb-1 font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">Archivos</div>
+      <ul className="space-y-1">
+        {archivos.map(a => (
+          <li className="flex items-center gap-2" key={texto(a.id)}>
+            <span className="min-w-0 flex-1 truncate">{texto(a.nombre)}</span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">{tamanoArchivo(a.bytes)}</span>
+            <button className="shrink-0 text-[11.5px] font-medium hover:underline" onClick={() => void usar(a, 'abrir')} type="button">
+              Abrir
+            </button>
+            <button
+              className="shrink-0 text-[11.5px] text-muted-foreground hover:text-foreground hover:underline"
+              onClick={() => void usar(a, 'descargar')}
+              type="button"
+            >
+              Descargar
+            </button>
+          </li>
+        ))}
+      </ul>
+      {aviso && <div className="mt-1 text-[11.5px] text-muted-foreground">{aviso}</div>}
+    </div>
+  )
 }
 
 const ESTADO_AVANCE: Record<string, string> = {
@@ -190,10 +242,13 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
   const { clientes, error: errorClientes, cargar: cargarClientes } = useClientes()
   const { servicios, error: errorServicios, cargar: cargarServicios } = useServicios()
   const [servicioSlug, setServicioSlug] = useState<string | null>(null)
+  const { piezas, error: errorBiblioteca, cargar: cargarBiblioteca } = useBibliotecaBandeja()
+  const [piezaNombre, setPiezaNombre] = useState<string | null>(null)
   const [elegida, setElegida] = useState<string | null>(null)
   const [ficha, setFicha] = useState<Registro | null>(null)
   const [hilo, setHilo] = useState<Registro[]>([])
   const [avance, setAvance] = useState<Registro | null>(null)
+  const [archivos, setArchivos] = useState<Registro[]>([])
   const [nota, setNota] = useState('')
   const [enviando, setEnviando] = useState(false)
   const [aviso, setAviso] = useState('')
@@ -225,6 +280,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
     setFicha(null)
     setHilo([])
     setAvance(null)
+    setArchivos([])
     setAviso('')
 
     const [f, c] = await Promise.all([
@@ -252,11 +308,17 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
 
     const av = await pedir({ path: `/solicitudes/${codigo}/avance` })
     setAvance(av.ok ? (av.datos as Registro) : null)
+
+    const ar = await pedir({ path: `/solicitudes/${codigo}/archivos` })
+    const lista = ar.ok ? (ar.datos as Registro | null)?.archivos : null
+    setArchivos(Array.isArray(lista) ? (lista as Registro[]) : [])
   }, [])
 
   const filtro = GRUPOS.find(g => g.id === grupo) ?? GRUPOS[0]
   const enClientes = grupo === 'clientes'
   const enServicios = grupo === 'servicios'
+  const enBiblioteca = grupo === 'biblioteca'
+  const piezaActual = piezas.find(p => String(p.pieza) === piezaNombre) ?? null
   const servicioActual = servicios.find(x => String(x.slug) === servicioSlug) ?? null
   const clienteActual = clientes.find(c => String(c.id) === clienteId) ?? null
   const visibles = useMemo(() => solicitudes.filter(s => filtro.filtra(texto(s.estado))), [solicitudes, filtro])
@@ -379,7 +441,34 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
               <span className="flex-1">Servicios</span>
               <span className="font-mono text-[10.5px]">{servicios.length}</span>
             </button>
+            <button
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px]',
+                enBiblioteca ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/50'
+              )}
+              onClick={() => {
+                setGrupo('biblioteca')
+                void cargarBiblioteca()
+              }}
+              type="button"
+            >
+              <span className="flex-1">Biblioteca</span>
+              <span className="font-mono text-[10.5px]">{piezas.length}</span>
+            </button>
           </div>
+          {enBiblioteca && errorBiblioteca && <div className="px-3 py-2 text-xs text-destructive">{errorBiblioteca}</div>}
+          {enBiblioteca && !errorBiblioteca && piezas.length === 0 && (
+            <div className="px-3 py-2 text-xs text-muted-foreground">No hay nada publicado para clientes.</div>
+          )}
+          {enBiblioteca &&
+            piezas.map(p => (
+              <FilaPieza
+                elegida={String(p.pieza) === piezaNombre}
+                key={String(p.pieza)}
+                onElegir={() => setPiezaNombre(String(p.pieza))}
+                pieza={p}
+              />
+            ))}
           {enServicios && errorServicios && <div className="px-3 py-2 text-xs text-destructive">{errorServicios}</div>}
           {enServicios &&
             servicios.map(x => (
@@ -400,11 +489,11 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                 onElegir={() => setClienteId(String(c.id))}
               />
             ))}
-          {!enClientes && !enServicios && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
-          {!enClientes && !enServicios && !error && visibles.length === 0 && (
+          {!enClientes && !enServicios && !enBiblioteca && error && <div className="px-3 py-2 text-xs text-destructive">{error}</div>}
+          {!enClientes && !enServicios && !enBiblioteca && !error && visibles.length === 0 && (
             <div className="px-3 py-2 text-xs text-muted-foreground">No hay solicitudes en este grupo.</div>
           )}
-          {!enClientes && !enServicios && visibles.map(s => {
+          {!enClientes && !enServicios && !enBiblioteca && visibles.map(s => {
             const codigo = texto(s.codigo)
 
             return (
@@ -432,7 +521,20 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
           })}
         </div>
         <div className="flex min-h-0 flex-col">
-          {enServicios ? (
+          {enBiblioteca ? (
+            piezaActual ? (
+              <FichaPieza
+                key={String(piezaActual.pieza)}
+                onRetirada={() => {
+                  setPiezaNombre(null)
+                  void cargarBiblioteca()
+                }}
+                pieza={piezaActual}
+              />
+            ) : (
+              <div className="m-auto text-sm text-muted-foreground">Elige una pieza para ver su ficha.</div>
+            )
+          ) : enServicios ? (
             servicioActual ? (
               <FichaServicio key={String(servicioActual.slug)} onSolicitudCreada={() => void cargar()} servicio={servicioActual} />
             ) : (
@@ -454,6 +556,7 @@ export function BandejaPagina({ onCuenta }: { onCuenta?: (n: number) => void }) 
                   <Pildora estado={texto(actual.estado)} />
                 </div>
                 {enCurso && avance && <PanelAvance avance={avance} />}
+                {archivos.length > 0 && <FilaArchivos archivos={archivos} codigo={texto(actual.codigo)} />}
                 <div className="flex flex-col gap-2 text-[12.5px]">
                   {hilo.map((m, i) =>
                     esPaso(m) ? (

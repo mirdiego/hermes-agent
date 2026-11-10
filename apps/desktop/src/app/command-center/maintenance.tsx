@@ -32,6 +32,8 @@ import { MemoryLayersSummary } from '../settings/memory/memory-layers'
 const ACTION_POLL_MS = 1200
 const ACTION_POLL_LIMIT = 240 // ~5 minutes of polling before giving up.
 
+const KELVO_COMPARTIR_DEPURACION = false
+
 function formatBytes(size: number): string {
   if (size <= 0) {
     return ''
@@ -223,12 +225,15 @@ export function MaintenancePanel() {
           label={mm.backup}
           onRun={() => void launch(mm.backup, runBackup)}
         />
-        <OpRow
-          description={mm.debugShareDesc}
-          disabled={sharing}
-          label={sharing ? mm.debugShareRunning : mm.debugShare}
-          onRun={() => void shareDebug()}
-        />
+        {/* kelvo: parche 39, sin «Compartir datos de depuración»: subía registros a paste.rs o dpaste.com. */}
+        {KELVO_COMPARTIR_DEPURACION && (
+          <OpRow
+            description={mm.debugShareDesc}
+            disabled={sharing}
+            label={sharing ? mm.debugShareRunning : mm.debugShare}
+            onRun={() => void shareDebug()}
+          />
+        )}
 
         {share && Object.keys(share.urls).length > 0 && (
           <div className="mt-2 rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-3">

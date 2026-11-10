@@ -52,6 +52,11 @@ export function parcialConMarca(catalogo: unknown): Nodo | null {
           return typeof resultado === 'string' ? reescribir(resultado) : resultado
         }
       }
+    } else if (Array.isArray(valor)) {
+      // Listas de textos (por ejemplo las sugerencias del cuadro de mensaje): se reescribe la lista completa.
+      if (valor.some(v => typeof v === 'string' && MARCA.test(v))) {
+        salida[clave] = valor.map(v => (typeof v === 'string' ? reescribir(v) : v))
+      }
     } else {
       const hijo = parcialConMarca(valor)
 

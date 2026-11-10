@@ -16331,12 +16331,138 @@ ipcMain.handle('kelvo:cliente', async (_event, pedido: { input?: string; sesion?
   }
 })
 
+// kelvo: parche 36, biblioteca de servicios. La app publica y retira piezas en la carpeta que el agente de servicios
+// ve en sólo lectura, por el servicio de la caja (infra/gpu-01/biblioteca) con la llave del Llavero
+// (servicio kelvo-biblioteca). El renderer manda sólo la acción y la ruta; nunca ve la llave.
+const KELVO_BIBLIOTECA_BASE = process.env.KELVO_BIBLIOTECA_BASE || 'https://gpu-01.tail3ecca3.ts.net/biblioteca'
+
+ipcMain.handle(
+  'kelvo:biblioteca',
+  async (
+    _event,
+    pedido: { accion?: string; ruta?: string; titulo?: string; origen?: string; pieza?: string; motivo?: string }
+  ) => {
+    const accion = pedido?.accion
+    const corto = (v: unknown, n: number) => (typeof v === 'string' ? v.slice(0, n) : '')
+    let ruta = ''
+    let body: Record<string, string> | undefined
+
+    if (accion === 'piezas') {
+      ruta = '/piezas'
+    } else if (accion === 'publicar' && corto(pedido.ruta, 2000)) {
+      ruta = '/publicar'
+      body = {
+        ruta: corto(pedido.ruta, 2000),
+        titulo: corto(pedido.titulo, 200),
+        origen: corto(pedido.origen, 300),
+        publicado_por: 'Kelvo'
+      }
+    } else if (accion === 'retirar' && corto(pedido.pieza, 160)) {
+      ruta = '/retirar'
+      body = { pieza: corto(pedido.pieza, 160), motivo: corto(pedido.motivo, 500), retirado_por: 'Kelvo' }
+    } else {
+      return { ok: false, status: 400, error: 'acción no permitida' }
+    }
+
+    let llave = ''
+
+    try {
+      llave = execFileSync('/usr/bin/security', ['find-generic-password', '-s', 'kelvo-biblioteca', '-a', 'diego', '-w'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 5000
+      }).trim()
+    } catch {
+      llave = ''
+    }
+
+    if (!llave) {
+      return { ok: false, status: 401, error: 'falta la llave kelvo-biblioteca en el Llavero' }
+    }
+
+    try {
+      const respuesta = await fetch(`${KELVO_BIBLIOTECA_BASE}${ruta}`, {
+        method: body ? 'POST' : 'GET',
+        headers: { authorization: `Bearer ${llave}`, 'content-type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(20000)
+      })
+      const datos = (await respuesta.json().catch(() => null)) as { error?: unknown } | null
+
+      return {
+        ok: respuesta.ok,
+        status: respuesta.status,
+        datos,
+        error: respuesta.ok ? undefined : typeof datos?.error === 'string' ? datos.error : `respondió ${respuesta.status}`
+      }
+    } catch (error) {
+      return { ok: false, status: 0, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+)
+
+// kelvo: parche 37, los archivos del informe de una solicitud (PDF y Word). El proceso principal los baja con la
+// llave del estudio y los abre o los deja en Descargas; la pantalla sólo manda el código, el id y el nombre.
+ipcMain.handle(
+  'kelvo:estudio-archivo',
+  async (_event, pedido: { codigo?: string; id?: string; nombre?: string; accion?: string }) => {
+    const codigo = typeof pedido?.codigo === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(pedido.codigo) ? pedido.codigo : ''
+    const id = typeof pedido?.id === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(pedido.id) ? pedido.id : ''
+    const accion = pedido?.accion === 'descargar' ? 'descargar' : 'abrir'
+
+    if (!codigo || !id) {
+      return { ok: false, error: 'falta el código o el archivo' }
+    }
+
+    const llave = kelvoEstudioLlave()
+
+    if (!llave) {
+      return { ok: false, error: 'falta la llave kelvo-estudio en el Llavero' }
+    }
+
+    try {
+      const respuesta = await fetch(
+        `${KELVO_ESTUDIO_BASE}/solicitudes/${codigo}/archivo?id=${encodeURIComponent(id)}`,
+        { headers: { authorization: `Bearer ${llave}` }, signal: AbortSignal.timeout(60000) }
+      )
+
+      if (!respuesta.ok) {
+        return { ok: false, error: `la plataforma respondió ${respuesta.status}` }
+      }
+
+      const sugerido = typeof pedido?.nombre === 'string' ? pedido.nombre : `${codigo}-${id}`
+      const nombre = path.basename(sugerido).replace(/[^\p{L}\p{N} ._()-]/gu, '_').slice(0, 120) || `${codigo}-${id}`
+      const carpeta =
+        accion === 'descargar'
+          ? app.getPath('downloads')
+          : fs.mkdtempSync(path.join(os.tmpdir(), `kelvo-${codigo}-`))
+      const destino = path.join(carpeta, nombre)
+
+      fs.writeFileSync(destino, Buffer.from(await respuesta.arrayBuffer()))
+
+      if (accion === 'descargar') {
+        shell.showItemInFolder(destino)
+      } else {
+        const error = await shell.openPath(destino)
+
+        if (error) {
+          return { ok: false, error }
+        }
+      }
+
+      return { ok: true, nombre }
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+)
+
 ipcMain.handle('kelvo:estudio', async (_event, pedido: { method?: string; path?: string; body?: unknown }) => {
   const method = pedido?.method === 'POST' ? 'POST' : 'GET'
   const ruta = typeof pedido?.path === 'string' ? pedido.path : ''
 
   const permitida =
-    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar|avance))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
+    /^\/solicitudes(\/[A-Za-z0-9_-]+(\/(conversacion|aprobar|devolver|firmar|archivar|avance|archivos))?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/clientes(\/[A-Za-z0-9_-]+\/llave)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/servicios(\/[A-Za-z0-9_-]+(\/simulaciones)?)?(\?[A-Za-z0-9_=&.-]*)?$/.test(ruta) ||
     /^\/simulaciones\/[A-Za-z0-9_-]+(\/(ajustar|lanzar))?$/.test(ruta) ||

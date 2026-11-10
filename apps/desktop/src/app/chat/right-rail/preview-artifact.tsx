@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import DOMPurify from 'dompurify'
 import { useEffect, useMemo, useState } from 'react'
 
+import { BarraCaja } from '@/app/artifacts/kelvo-vista-caja'
 import { CopyButton } from '@/components/ui/copy-button'
 import { PreviewDocumentFrame } from '@/components/ui/preview-document-frame'
 import { Tip } from '@/components/ui/tooltip'
@@ -213,6 +214,8 @@ export function ArtifactPreview({ onClose, target }: { onClose?: () => void; tar
         onSelect={setUserMode}
         trailing={
           <>
+            {/* kelvo: parche 38 */}
+            <BarraCaja artifactId={artifactId} />
             <VersionStepper
               current={versionIndex}
               onSelect={index => selectArtifactVersion(artifactId, index)}

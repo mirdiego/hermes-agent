@@ -520,6 +520,35 @@ function routeFileLinksToPreview(text: string): string {
   })
 }
 
+// kelvo: parche 44. Una ruta absoluta a un .html que el agente escribe suelta en el texto (o sola entre comillas
+// invertidas) se vuelve un enlace de vista previa, igual que un enlace markdown a un archivo: la tarjeta abre el
+// HTML en el visor aislado (parche 40). Se reconoce aunque la sigan « — », coma, punto, paréntesis o backtick.
+// Parche 48: también dentro de negrita o cursiva (** __ * _) y entre paréntesis; nunca la ruta de un enlace ya
+// hecho ](…), la etiqueta [/…] ni una ruta pegada a una palabra o a una URL.
+const KELVO_RUTA_HTML_RE =
+  /(?<![A-Za-z0-9/\][<.:-])(?<!\]\()(\/(?:[\w.@-]+\/)*[\w.@-]+\.html?)(?=$|[\s,.;:)\]`'"*_\u2014\u2013])/g
+
+const KELVO_RUTA_HTML_SOLA_RE = /^`(\/(?:[\w.@-]+\/)*[\w.@-]+\.html?)`$/
+
+function enlaceKelvo(ruta: string): string {
+  return `[${ruta.split('/').pop()}](${previewMarkdownHref(ruta)})`
+}
+
+export function enlazarRutasHtmlKelvo(text: string): string {
+  return text
+    .split(/(`[^`\n]*`)/)
+    .map((trozo, i) => {
+      if (i % 2 === 1) {
+        const sola = KELVO_RUTA_HTML_SOLA_RE.exec(trozo)
+
+        return sola ? enlaceKelvo(sola[1]) : trozo
+      }
+
+      return trozo.replace(KELVO_RUTA_HTML_RE, ruta => enlaceKelvo(ruta))
+    })
+    .join('')
+}
+
 // Mirror of the bundled grounded-citations skill's `_split_draft()`: find the
 // LAST `Sources` header, then collect entry ids only from the section that
 // header opens (fenced code excluded). A marker survives only when this
@@ -579,7 +608,8 @@ function rewriteProseSegment(segment: string, sourceListIds: Set<string>): strin
   return linkifySessionRefs(
     escapeLoneTildes(
       autoLinkRawUrls(
-        routeFileLinksToPreview(
+        enlazarRutasHtmlKelvo(
+          routeFileLinksToPreview(
           escapeUnknownHtmlLikeTags(
             segment
               .replace(/`{3,}/g, '')
@@ -593,6 +623,7 @@ function rewriteProseSegment(segment: string, sourceListIds: Set<string>): strin
                 return ids.every(id => sourceListIds.has(id)) ? marker : ''
               })
           )
+        )
         )
       )
     )
@@ -645,7 +676,7 @@ function normalizeVisibleProse(text: string, sourceListIds: Set<string>): string
     .split(INLINE_CODE_SPLIT_RE)
     .map(part =>
       part.startsWith('`')
-        ? part
+        ? enlazarRutasHtmlKelvo(part) // kelvo: parche 47, una ruta .html sola entre backticks también se enlaza
         : part
             .split(MATH_SPAN_SPLIT_RE)
             .map((segment, index) => (index % 2 === 1 ? segment : rewriteProseSegment(segment, sourceListIds)))

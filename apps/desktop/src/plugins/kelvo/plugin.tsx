@@ -21,6 +21,7 @@ import {
 } from '@hermes/plugin-sdk'
 
 import { BandejaPagina, lista, pedir } from './bandeja'
+import { vigilarPantalla } from './limpieza-pantalla'
 import { parcialConMarca } from './marca'
 import kelvoGrafito from './tema-kelvo-grafito'
 
@@ -43,7 +44,11 @@ const PROPIOS_ES = {
       ]
     }
   },
-  shell: { statusbar: { backend: 'Motor', messagingStopped: 'mensajería apagada', gatewayReady: 'listo' } }
+  shell: { statusbar: { backend: 'Motor', messagingStopped: 'mensajería apagada', gatewayReady: 'listo' } },
+  settings: {
+    gateway: { remoteUrlDesc: 'URL base del backend del dashboard remoto. Se admiten prefijos de ruta, por ejemplo /kelvo.' }
+  },
+  install: { remoteUrlPlaceholder: 'https://gateway.example.com/kelvo' }
 }
 
 const PROPIOS_EN = {
@@ -76,6 +81,9 @@ const plugin: HermesPlugin = {
     host.i18n.registerAppLocale('en', {
       translations: mezclar(parcialConMarca(BUNDLED_TRANSLATIONS.en), PROPIOS_EN)
     })
+
+    // La marca también en lo que manda el motor y no pasa por los catálogos (limpieza-pantalla.ts).
+    vigilarPantalla()
 
     ctx.registerMany([
       { id: 'tema', area: THEMES_AREA, data: kelvoGrafito },

@@ -586,6 +586,46 @@ export function _resetTranscriptBackfillForTests(): void {
  * `applyOlderPage`. Resolves true when a page was applied. Concurrent calls
  * for the same session share one fetch.
  */
+// kelvo: parche 41. Una página anterior que no responde dejaba la promesa en vuelo para siempre: cada clic en
+// «Mostrar mensajes anteriores» reusaba esa misma promesa y no pasaba nada hasta reabrir la app. Ahora la espera
+// tiene tope y, si el alcance completo (perfil y conexión) falla, se pide otra vez sólo con el nombre del perfil.
+export const KELVO_ESPERA_PAGINA_MS = 20000
+
+function conTopeKelvo<T>(promesa: Promise<T>, ms = KELVO_ESPERA_PAGINA_MS): Promise<T> {
+  return new Promise((resolver, rechazar) => {
+    const reloj = setTimeout(() => rechazar(new Error('la página anterior no respondió a tiempo')), ms)
+    promesa.then(
+      valor => {
+        clearTimeout(reloj)
+        resolver(valor)
+      },
+      error => {
+        clearTimeout(reloj)
+        rechazar(error)
+      }
+    )
+  })
+}
+
+export async function paginaAnteriorKelvo(
+  storedSessionId: string,
+  scope: ProfileScope | undefined,
+  offset: number,
+  pedir: typeof getOlderSessionMessages = getOlderSessionMessages
+): Promise<SessionMessagesResponse> {
+  try {
+    return await conTopeKelvo(pedir(storedSessionId, scope as ProfileScope, offset))
+  } catch (error) {
+    const nombre = scope && typeof scope === 'object' ? scope.profile : undefined
+
+    if (!nombre) {
+      throw error
+    }
+
+    return conTopeKelvo(pedir(storedSessionId, nombre, offset))
+  }
+}
+
 export function backfillOlderTranscriptPage(request: BackfillRequest): Promise<boolean> {
   const { profile, storedSessionId } = request
   const inflightKey = JSON.stringify([profile || null, storedSessionId])
@@ -605,7 +645,7 @@ export function backfillOlderTranscriptPage(request: BackfillRequest): Promise<b
     let page
 
     try {
-      page = await getOlderSessionMessages(storedSessionId, tail.profile, tail.nextOffset)
+      page = await paginaAnteriorKelvo(storedSessionId, tail.profile, tail.nextOffset)
     } catch {
       // Non-fatal: the action stays available and the next click retries.
       return false

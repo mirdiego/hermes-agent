@@ -49,13 +49,20 @@ export function useClientes() {
   return { clientes, error, cargar }
 }
 
-/** La llave recién creada: se muestra una vez y se olvida al cerrar. */
-function LlaveUnaVez({ llave, onCerrar }: { llave: string; onCerrar: () => void }) {
+/** Dirección del conector de Kelvo Servicios en la plataforma (runbook de la escena de Claude, 2026-11-06). */
+export const BASE_CONECTOR = 'https://kelvo-plataforma.vercel.app/api/servicios/mcp/'
+
+/** La URL que se pega en Claude: la base con la llave al final, sin espacios. */
+export function urlConector(llave: string): string {
+  return `${BASE_CONECTOR}${llave.trim()}`
+}
+
+function FilaCopiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
   const [copiada, setCopiada] = useState(false)
 
   const copiar = async () => {
     try {
-      await navigator.clipboard.writeText(llave)
+      await navigator.clipboard.writeText(valor)
       setCopiada(true)
     } catch {
       setCopiada(false)
@@ -63,15 +70,33 @@ function LlaveUnaVez({ llave, onCerrar }: { llave: string; onCerrar: () => void 
   }
 
   return (
+    <div className="flex flex-col gap-1">
+      <div className="font-mono text-[10.5px] uppercase tracking-wider text-muted-foreground">{etiqueta}</div>
+      <div className="flex items-start gap-2">
+        <code className="block min-w-0 flex-1 select-all break-all rounded-md border border-border bg-card px-3 py-2 font-mono text-[12.5px]">
+          {valor}
+        </code>
+        <Button onClick={() => void copiar()} size="sm" type="button" variant="outline">
+          {copiada ? 'Copiada' : 'Copiar'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** La llave recién creada y la URL del conector: se muestran una vez y se olvidan al cerrar. */
+function LlaveUnaVez({ llave, onCerrar }: { llave: string; onCerrar: () => void }) {
+  return (
     <div className="flex flex-col gap-3">
       <div className="text-[12.5px] text-muted-foreground">
         Esta es la llave del cliente. <b className="text-foreground">No se vuelve a mostrar</b>: cópiala y mándasela por un canal privado.
       </div>
-      <code className="block select-all break-all rounded-md border border-border bg-card px-3 py-2 font-mono text-[12.5px]">{llave}</code>
+      <FilaCopiable etiqueta="Llave" valor={llave} />
+      <FilaCopiable etiqueta="URL del conector" valor={urlConector(llave)} />
+      <div className="text-[12px] text-muted-foreground">
+        Pégala en Claude → Configuración → Conectores → Agregar conector personalizado.
+      </div>
       <div className="flex justify-end gap-2">
-        <Button onClick={() => void copiar()} size="sm" type="button" variant="outline">
-          {copiada ? 'Copiada' : 'Copiar'}
-        </Button>
         <Button onClick={onCerrar} size="sm" type="button">
           Listo
         </Button>
